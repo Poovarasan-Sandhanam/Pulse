@@ -6,6 +6,18 @@ It serves as a showcase of mobile interaction design, gesture handling, high-fre
 
 ---
 
+## Application Screenshots
+
+| Portfolio Overview | Watchlist & Markets |
+| :---: | :---: |
+| <img src="./docs/screenshots/portfolio.png" width="360" alt="Portfolio Overview" /> | <img src="./docs/screenshots/markets.png" width="360" alt="Watchlist & Markets" /> |
+
+| Interactive Chart & Detail | Preferences & Performance Lab |
+| :---: | :---: |
+| <img src="./docs/screenshots/chart_detail.png" width="360" alt="Interactive Skia Chart" /> | <img src="./docs/screenshots/settings.png" width="360" alt="Settings & Performance" /> |
+
+---
+
 ## Technical Stack
 
 - **Framework**: React Native 0.74 / Expo SDK 51 with Expo Router v3
@@ -54,3 +66,42 @@ yarn start
 - [Gesture Architecture](./docs/gestures.md)
 - [Accessibility & Reduce Motion](./docs/accessibility.md)
 - [Technical Decisions & Rationale](./docs/decisions.md)
+
+---
+
+## Core Educational Learnings
+
+Developers exploring or contributing to **Pulse** can gain deep practical mastery in:
+
+- ⚡ **UI-Thread First Gesture Engineering**: How to run 60–120 FPS pan gestures, crosshair scrubbing, and physics animations entirely on the native UI thread using Reanimated v3 Worklets without dropping frames.
+- 🎨 **GPU-Accelerated Graphics with Skia**: Constructing high-frequency financial charts, continuous gradients, and responsive crosshair overlays powered by `@shopify/react-native-skia` on the native GPU.
+- 🏎️ **List & State Performance**: Offloading rapid market updates via Zustand atomic selectors and rendering high-throughput lists with `@shopify/flash-list`.
+- 🧮 **Direct Manipulation Physical Physics**: Designing custom physics-driven UI controls (`SwipeToConfirm`, `MotionBottomSheet`) with custom mass, stiffness, and velocity-clamped spring profiles.
+- 🔊 **Sensory UX & Accessibility**: Orchestrating haptic feedback (`expo-haptics`), audio effects, and respecting system accessibility toggles (`Reduce Motion`).
+
+---
+
+## Upcoming Features & Contribution Ideas
+
+We welcome contributions! Here are planned enhancements and feature ideas perfect for open-source contributions:
+
+- 📈 **Technical Indicators Overlay**: Implement Moving Averages (SMA/EMA), RSI, and Volume indicators on top of the React Native Skia chart.
+- ⚡ **WebSocket Live Exchange Feed**: Add a toggle in Settings to switch between the synthetic Geometric Brownian Motion engine and live WebSocket feeds (e.g. Binance / Coinbase).
+- 🔔 **Custom Price Alerts & Notifications**: Allow users to set price trigger alerts with native local push notification delivery.
+- 💼 **Advanced Portfolio Analytics & Pie Allocation**: Interactive historical cumulative PnL graphs and dynamic asset allocation charts.
+- 🏆 **Gamified Trading Challenges**: Daily paper trading simulation goals, achievements, and leaderboard rankings.
+- 🧪 **Interactive Motion Playground**: Expanded Performance Lab tool to adjust spring stiffness, damping, and mass live with real-time gesture feedback graphs.
+
+---
+
+## Contributing
+
+Contributions make the open-source community an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+
+1. **Fork the Repository**
+2. **Create your Feature Branch** (`git checkout -b feature/AmazingFeature`)
+3. **Commit your Changes** (`git commit -m 'Add some AmazingFeature'`)
+4. **Run Unit Tests** (`yarn test`)
+5. **Push to the Branch** (`git push origin feature/AmazingFeature`)
+6. **Open a Pull Request**
+
