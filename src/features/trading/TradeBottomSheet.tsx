@@ -4,6 +4,7 @@ import {
   View,
   Text,
   TextInput,
+  ScrollView,
 } from 'react-native';
 import { colors, radius, spacing, typography } from '../../theme/tokens';
 import { MotionBottomSheet } from '../../components/MotionBottomSheet';
@@ -59,8 +60,13 @@ export const TradeBottomSheet: React.FC<TradeBottomSheetProps> = ({
   };
 
   return (
-    <MotionBottomSheet isVisible={isVisible} onClose={onClose} snapPoints={[0.75]}>
-      <View style={styles.content}>
+    <MotionBottomSheet isVisible={isVisible} onClose={onClose} snapPoints={[0.85]}>
+      <ScrollView
+        style={styles.scrollContent}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {isCompleted ? (
           <AnimatedCard style={styles.successContainer}>
             <CheckCircle2 size={64} color={colors.positive} strokeWidth={2} />
@@ -104,7 +110,11 @@ export const TradeBottomSheet: React.FC<TradeBottomSheetProps> = ({
               </View>
 
               {amount > availableBalance && (
-                <Text style={styles.errorText}>Insufficient available balance</Text>
+                <Text style={styles.errorText}>
+                  {availableBalance === 0
+                    ? `You don't own any ${asset.symbol} to sell`
+                    : 'Insufficient available balance'}
+                </Text>
               )}
             </View>
 
@@ -138,15 +148,18 @@ export const TradeBottomSheet: React.FC<TradeBottomSheetProps> = ({
             </View>
           </>
         )}
-      </View>
+      </ScrollView>
     </MotionBottomSheet>
   );
 };
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    flex: 1,
+  },
   content: {
     padding: spacing.lg,
-    flex: 1,
+    paddingBottom: spacing.xxl,
   },
   sheetTitle: {
     ...typography.h2,
