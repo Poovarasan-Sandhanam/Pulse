@@ -47,6 +47,26 @@ function generateHistoricalChart(basePrice: number, points = 60): PricePoint[] {
   return data;
 }
 
+/**
+ * Generate large synthetic benchmark dataset using Geometric Brownian Motion
+ */
+export function generateSyntheticDataset(count: number, basePrice: number = 63420.25): PricePoint[] {
+  const data: PricePoint[] = new Array(count);
+  const now = Date.now();
+  const intervalMs = 5000; // 5-second interval between samples
+  let price = basePrice * 0.85;
+
+  for (let i = 0; i < count; i++) {
+    const timestamp = now - (count - i) * intervalMs;
+    const variation = (Math.random() - 0.492) * 0.004 * price;
+    price = Math.max(0.01, price + variation);
+    data[i] = { timestamp, price: parseFloat(price.toFixed(2)) };
+  }
+
+  return data;
+}
+
+
 export function initializeMarketData(): CryptoAsset[] {
   return INITIAL_ASSETS.map((asset) => {
     const chartData = generateHistoricalChart(asset.currentPrice, 60);

@@ -146,6 +146,8 @@ export const SwipeToConfirm: React.FC<SwipeToConfirmProps> = ({
 
   return (
     <View
+      testID="swipe-to-confirm"
+      accessibilityLabel="swipe-to-confirm"
       style={[
         styles.track,
         disabled && styles.disabledTrack,
