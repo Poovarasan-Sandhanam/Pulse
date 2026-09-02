@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, ScrollView } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { StyleSheet, View, Text, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, spacing, typography } from '../../theme/tokens';
 import { AnimatedPressable } from '../../motion/primitives/AnimatedPressable';
@@ -10,7 +10,15 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { springConfig } from '../../motion/springs';
-import { Activity, Cpu, Zap, Flame } from 'lucide-react-native';
+import { Activity, Cpu, Zap, Flame, BarChart2, Layers } from 'lucide-react-native';
+import { SkiaPriceChart } from '../../chart/SkiaPriceChart';
+import { PricePoint, generateSyntheticDataset } from '../../services/market/MarketSimulator';
+import { fetchCoinGeckoMarketData } from '../../services/market/CoinGeckoService';
+import { Loader } from '../../components/Loader';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+
+type BenchmarkSource = 'coingecko' | 'synthetic-10k' | 'synthetic-50k' | 'synthetic-100k';
 
 export const PerformanceLabScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -18,12 +26,61 @@ export const PerformanceLabScreen: React.FC = () => {
   const [jsRenderCount, setJsRenderCount] = useState(0);
   const [stressActive, setStressActive] = useState(false);
 
+  // Large Dataset Benchmark State
+  const [activeSource, setActiveSource] = useState<BenchmarkSource>('synthetic-10k');
+  const [chartData, setChartData] = useState<PricePoint[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
+  const [benchmarkMetrics, setBenchmarkMetrics] = useState<{
+    downsampleMs: number;
+    pathCreationMs: number;
+    renderedPoints: number;
+  }>({ downsampleMs: 0, pathCreationMs: 0, renderedPoints: 0 });
+
   // JS Thread Demo State
   const [jsBoxPos, setJsBoxPos] = useState({ x: 0, y: 0 });
 
   // UI Thread Shared Value
   const uiBoxX = useSharedValue(0);
   const uiBoxY = useSharedValue(0);
+
+  // Load Data based on activeSource selection
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoadingData(true);
+
+    const loadDataset = async () => {
+      if (activeSource === 'coingecko') {
+        const data = await fetchCoinGeckoMarketData('bitcoin', 30);
+        if (isMounted) {
+          setChartData(data);
+          setIsLoadingData(false);
+        }
+      } else if (activeSource === 'synthetic-10k') {
+        const data = generateSyntheticDataset(10000);
+        if (isMounted) {
+          setChartData(data);
+          setIsLoadingData(false);
+        }
+      } else if (activeSource === 'synthetic-50k') {
+        const data = generateSyntheticDataset(50000);
+        if (isMounted) {
+          setChartData(data);
+          setIsLoadingData(false);
+        }
+      } else if (activeSource === 'synthetic-100k') {
+        const data = generateSyntheticDataset(100000);
+        if (isMounted) {
+          setChartData(data);
+          setIsLoadingData(false);
+        }
+      }
+    };
+
+    loadDataset();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeSource]);
 
   // FPS Estimator Loop
   useEffect(() => {
@@ -52,7 +109,6 @@ export const PerformanceLabScreen: React.FC = () => {
   // JS Thread Gesture (Intentionally expensive setState loop)
   const jsPanGesture = Gesture.Pan().onChange((e) => {
     setJsRenderCount((c) => c + 1);
-    // Simulating heavy JS work
     for (let i = 0; i < 5000; i++) {
       Math.sin(i) * Math.cos(i);
     }
@@ -79,6 +135,8 @@ export const PerformanceLabScreen: React.FC = () => {
     transform: [{ translateX: uiBoxX.value }, { translateY: uiBoxY.value }],
   }));
 
+  const chartWidth = SCREEN_WIDTH - spacing.md * 2 - spacing.md * 2;
+
   return (
     <ScrollView
       style={styles.container}
@@ -90,7 +148,7 @@ export const PerformanceLabScreen: React.FC = () => {
     >
       <View style={styles.header}>
         <Text style={styles.title}>Performance Lab</Text>
-        <Text style={styles.subtitle}>JS Thread vs Reanimated UI Thread Engineering</Text>
+        <Text style={styles.subtitle}>Rendering Engineering, Data Downsampling & Thread Isolation</Text>
       </View>
 
       {/* Metrics Dashboard */}
@@ -108,8 +166,109 @@ export const PerformanceLabScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Interactive Demos Section */}
-      <Text style={styles.sectionTitle}>Interactive Benchmark Demos</Text>
+      {/* BENCHMARK MODULE: Large Dataset Skia Renderer */}
+      <Text style={styles.sectionTitle}>Large Dataset Rendering Benchmark</Text>
+      <View style={styles.demoCard}>
+        <View style={styles.badgeRow}>
+          <View style={[styles.badge, { backgroundColor: colors.accentMuted }]}>
+            <BarChart2 size={12} color={colors.accent} />
+            <Text style={[styles.badgeText, { color: colors.accent }]}>
+              SKIA PATH & DATA REDUCTION PIPELINE
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.demoDesc}>
+          Benchmarking LTTB downsampling and viewport culling on 1k–100k raw point streams before Skia GPU path vector assembly.
+        </Text>
+
+        {/* Source Switcher Buttons */}
+        <View style={styles.sourceBtnRow}>
+          <AnimatedPressable
+            style={[styles.sourceBtn, activeSource === 'coingecko' && styles.sourceBtnActive]}
+            onPress={() => setActiveSource('coingecko')}
+          >
+            <Text style={[styles.sourceBtnText, activeSource === 'coingecko' && styles.sourceBtnTextActive]}>
+              CoinGecko BTC
+            </Text>
+          </AnimatedPressable>
+
+          <AnimatedPressable
+            style={[styles.sourceBtn, activeSource === 'synthetic-10k' && styles.sourceBtnActive]}
+            onPress={() => setActiveSource('synthetic-10k')}
+          >
+            <Text style={[styles.sourceBtnText, activeSource === 'synthetic-10k' && styles.sourceBtnTextActive]}>
+              Synthetic 10k
+            </Text>
+          </AnimatedPressable>
+
+          <AnimatedPressable
+            style={[styles.sourceBtn, activeSource === 'synthetic-50k' && styles.sourceBtnActive]}
+            onPress={() => setActiveSource('synthetic-50k')}
+          >
+            <Text style={[styles.sourceBtnText, activeSource === 'synthetic-50k' && styles.sourceBtnTextActive]}>
+              50k
+            </Text>
+          </AnimatedPressable>
+
+          <AnimatedPressable
+            style={[styles.sourceBtn, activeSource === 'synthetic-100k' && styles.sourceBtnActive]}
+            onPress={() => setActiveSource('synthetic-100k')}
+          >
+            <Text style={[styles.sourceBtnText, activeSource === 'synthetic-100k' && styles.sourceBtnTextActive]}>
+              100k
+            </Text>
+          </AnimatedPressable>
+        </View>
+
+        {/* Chart Viewport Canvas */}
+        <View style={styles.chartContainer}>
+          {isLoadingData ? (
+            <View style={styles.loadingContainer}>
+              <Loader text={`Generating ${activeSource} dataset...`} />
+            </View>
+          ) : (
+            <SkiaPriceChart
+              data={chartData}
+              width={chartWidth}
+              height={180}
+              assetSymbol={activeSource === 'coingecko' ? 'BTC' : 'SYNTH'}
+              isPositive={true}
+              onBenchmarkMetrics={setBenchmarkMetrics}
+            />
+          )}
+        </View>
+
+        {/* Telemetry Metrics Panel */}
+        <View style={styles.telemetryCard}>
+          <View style={styles.telemetryRow}>
+            <Text style={styles.telemetryLabel}>Raw Dataset Points:</Text>
+            <Text style={styles.telemetryVal}>{chartData.length.toLocaleString()}</Text>
+          </View>
+          <View style={styles.telemetryRow}>
+            <Text style={styles.telemetryLabel}>LTTB Reduction Time:</Text>
+            <Text style={[styles.telemetryVal, { color: colors.positive }]}>
+              {benchmarkMetrics.downsampleMs} ms
+            </Text>
+          </View>
+          <View style={styles.telemetryRow}>
+            <Text style={styles.telemetryLabel}>Skia Path Build Time:</Text>
+            <Text style={[styles.telemetryVal, { color: colors.accent }]}>
+              {benchmarkMetrics.pathCreationMs} ms
+            </Text>
+          </View>
+          <View style={styles.telemetryRow}>
+            <Text style={styles.telemetryLabel}>Rendered Skia Points:</Text>
+            <Text style={styles.telemetryVal}>{benchmarkMetrics.renderedPoints}</Text>
+          </View>
+          <View style={styles.telemetryRow}>
+            <Text style={styles.telemetryLabel}>Labels & Accessibility:</Text>
+            <Text style={[styles.telemetryVal, { color: colors.positive }]}>Native RN Overlay</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Interactive Thread Demos Section */}
+      <Text style={styles.sectionTitle}>Thread Isolation Demos</Text>
 
       {/* Demo 1: JS Thread */}
       <View style={styles.demoCard}>
@@ -271,6 +430,76 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.secondaryText,
     marginBottom: spacing.md,
+  },
+  sourceBtnRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  sourceBtn: {
+    flex: 1,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: radius.xs,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  sourceBtnActive: {
+    backgroundColor: colors.accentMuted,
+    borderColor: colors.accent,
+  },
+  sourceBtnText: {
+    ...typography.caption,
+    fontSize: 11,
+    color: colors.secondaryText,
+    fontWeight: '600',
+  },
+  sourceBtnTextActive: {
+    color: colors.accent,
+    fontWeight: '700',
+  },
+  chartContainer: {
+    height: 180,
+    backgroundColor: colors.background,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  loadingText: {
+    ...typography.caption,
+    color: colors.secondaryText,
+  },
+  telemetryCard: {
+    backgroundColor: colors.surfaceElevated,
+    padding: spacing.sm,
+    borderRadius: radius.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 4,
+  },
+  telemetryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  telemetryLabel: {
+    ...typography.caption,
+    color: colors.secondaryText,
+  },
+  telemetryVal: {
+    ...typography.caption,
+    color: colors.primaryText,
+    fontWeight: '700',
   },
   gestureTrack: {
     height: 120,

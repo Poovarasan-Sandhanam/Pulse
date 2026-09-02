@@ -17,6 +17,13 @@ import { useTradeStore } from '../../store/useTradeStore';
 import { TrendingUp, ArrowUpRight, ArrowDownLeft } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+};
+
 export const PortfolioScreen: React.FC = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -63,7 +70,7 @@ export const PortfolioScreen: React.FC = () => {
     >
       {/* Greeting Header */}
       <View style={styles.header}>
-        <Text style={styles.greeting}>Good evening</Text>
+        <Text style={styles.greeting}>{getGreeting()}</Text>
         <Text style={styles.subtitle}>Portfolio Overview</Text>
       </View>
 

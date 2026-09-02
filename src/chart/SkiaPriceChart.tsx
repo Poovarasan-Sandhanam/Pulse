@@ -12,6 +12,8 @@ import {
 import { PricePoint } from '../services/market/MarketSimulator';
 import { colors } from '../theme/tokens';
 import { SharedValue } from 'react-native-reanimated';
+import { downsampleLTTB, cullViewportData } from './utils/dataReduction';
+import { ChartNativeOverlay } from './ChartNativeOverlay';
 
 interface SkiaPriceChartProps {
   data: PricePoint[];
@@ -19,6 +21,12 @@ interface SkiaPriceChartProps {
   height: number;
   lineColor?: string;
   isPositive?: boolean;
+  assetSymbol?: string;
+  maxTargetPoints?: number;
+  minTimeDomain?: number;
+  maxTimeDomain?: number;
+  showOverlay?: boolean;
+  onBenchmarkMetrics?: (metrics: { downsampleMs: number; pathCreationMs: number; renderedPoints: number }) => void;
   touchX?: SharedValue<number>;
   touchY?: SharedValue<number>;
   isTouchActive?: SharedValue<boolean>;
@@ -30,31 +38,66 @@ export const SkiaPriceChart: React.FC<SkiaPriceChartProps> = ({
   height,
   lineColor,
   isPositive = true,
+  assetSymbol = 'BTC',
+  maxTargetPoints = 500,
+  minTimeDomain,
+  maxTimeDomain,
+  showOverlay,
+  onBenchmarkMetrics,
 }) => {
   const strokeColor = lineColor || (isPositive ? colors.positive : colors.negative);
-  const paddingVertical = 20;
-  const paddingHorizontal = 10;
+  const paddingVertical = height < 60 ? 4 : 20;
+  const paddingHorizontal = height < 60 ? 2 : 10;
+  const renderOverlay = showOverlay ?? height >= 80;
 
-  const { path, fillPath, points, minPrice, maxPrice } = useMemo(() => {
+  const { path, fillPath, minPrice, maxPrice, startTime, endTime } = useMemo(() => {
     if (!data || data.length === 0) {
-      return { path: Skia.Path.Make(), fillPath: Skia.Path.Make(), points: [], minPrice: 0, maxPrice: 0 };
+      return {
+        path: Skia.Path.Make(),
+        fillPath: Skia.Path.Make(),
+        minPrice: 0,
+        maxPrice: 0,
+        startTime: undefined,
+        endTime: undefined,
+      };
     }
 
-    const prices = data.map((d) => d.price);
-    const minP = Math.min(...prices);
-    const maxP = Math.max(...prices);
+    const startPerf = performance.now();
+
+    // 1. Viewport Culling
+    const culledData = cullViewportData(data, minTimeDomain, maxTimeDomain);
+
+    // 2. LTTB Downsampling if point count exceeds maxTargetPoints
+    const processedData =
+      culledData.length > maxTargetPoints
+        ? downsampleLTTB(culledData, maxTargetPoints)
+        : culledData;
+
+    const downsampleEndPerf = performance.now();
+
+    // Calculate min/max price bounds
+    let minP = Infinity;
+    let maxP = -Infinity;
+    for (let i = 0; i < processedData.length; i++) {
+      const p = processedData[i].price;
+      if (p < minP) minP = p;
+      if (p > maxP) maxP = p;
+    }
+    if (minP === Infinity) minP = 0;
+    if (maxP === -Infinity) maxP = 1;
     const priceRange = maxP - minP || 1;
 
     const chartWidth = width - paddingHorizontal * 2;
     const chartHeight = height - paddingVertical * 2;
 
-    const mappedPoints = data.map((d, index) => {
-      const x = paddingHorizontal + (index / (data.length - 1)) * chartWidth;
+    const mappedPoints = processedData.map((d, index) => {
+      const x = paddingHorizontal + (index / (processedData.length - 1 || 1)) * chartWidth;
       const normalizedPrice = (d.price - minP) / priceRange;
       const y = height - paddingVertical - normalizedPrice * chartHeight;
       return { x, y, price: d.price, timestamp: d.timestamp };
     });
 
+    // 3. Skia Path Vector Construction
     const skPath = Skia.Path.Make();
     if (mappedPoints.length > 0) {
       skPath.moveTo(mappedPoints[0].x, mappedPoints[0].y);
@@ -74,24 +117,48 @@ export const SkiaPriceChart: React.FC<SkiaPriceChartProps> = ({
       skFillPath.close();
     }
 
+    const pathCreationEndPerf = performance.now();
+
+    if (onBenchmarkMetrics) {
+      onBenchmarkMetrics({
+        downsampleMs: parseFloat((downsampleEndPerf - startPerf).toFixed(2)),
+        pathCreationMs: parseFloat((pathCreationEndPerf - downsampleEndPerf).toFixed(2)),
+        renderedPoints: processedData.length,
+      });
+    }
+
     return {
       path: skPath,
       fillPath: skFillPath,
-      points: mappedPoints,
       minPrice: minP,
       maxPrice: maxP,
+      startTime: processedData[0]?.timestamp,
+      endTime: processedData[processedData.length - 1]?.timestamp,
     };
-  }, [data, width, height, paddingHorizontal, paddingVertical]);
+  }, [
+    data,
+    width,
+    height,
+    paddingHorizontal,
+    paddingVertical,
+    maxTargetPoints,
+    minTimeDomain,
+    maxTimeDomain,
+    onBenchmarkMetrics,
+  ]);
 
   return (
     <View style={[styles.container, { width, height }]}>
+      {/* Skia Vector Graphics Canvas */}
       <Canvas style={{ width, height }}>
-        {/* Subtle Horizontal Grid Lines */}
-        <Group opacity={0.15}>
-          <Line p1={vec(0, height * 0.25)} p2={vec(width, height * 0.25)} color={colors.borderHighlight} strokeWidth={1} />
-          <Line p1={vec(0, height * 0.5)} p2={vec(width, height * 0.5)} color={colors.borderHighlight} strokeWidth={1} />
-          <Line p1={vec(0, height * 0.75)} p2={vec(width, height * 0.75)} color={colors.borderHighlight} strokeWidth={1} />
-        </Group>
+        {/* Subtle Horizontal Grid Lines for main charts */}
+        {height >= 80 && (
+          <Group opacity={0.15}>
+            <Line p1={vec(0, height * 0.25)} p2={vec(width, height * 0.25)} color={colors.borderHighlight} strokeWidth={1} />
+            <Line p1={vec(0, height * 0.5)} p2={vec(width, height * 0.5)} color={colors.borderHighlight} strokeWidth={1} />
+            <Line p1={vec(0, height * 0.75)} p2={vec(width, height * 0.75)} color={colors.borderHighlight} strokeWidth={1} />
+          </Group>
+        )}
 
         {/* Gradient Fill Below Line */}
         <Path path={fillPath}>
@@ -110,11 +177,26 @@ export const SkiaPriceChart: React.FC<SkiaPriceChartProps> = ({
           path={path}
           color={strokeColor}
           style="stroke"
-          strokeWidth={2.5}
+          strokeWidth={height < 60 ? 1.5 : 2.5}
           strokeCap="round"
           strokeJoin="round"
         />
       </Canvas>
+
+      {/* Native Text & Screen Reader Accessibility Overlay */}
+      {renderOverlay ? (
+        <ChartNativeOverlay
+          width={width}
+          height={height}
+          minPrice={minPrice}
+          maxPrice={maxPrice}
+          startTime={startTime}
+          endTime={endTime}
+          assetSymbol={assetSymbol}
+          isPositive={isPositive}
+          showOverlay={renderOverlay}
+        />
+      ) : null}
     </View>
   );
 };

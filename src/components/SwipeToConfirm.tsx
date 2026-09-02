@@ -13,6 +13,7 @@ import Animated, {
 import { colors, radius, spacing, typography } from '../theme/tokens';
 import { springConfig } from '../motion/springs';
 import { haptics } from '../services/haptics';
+import { useSettingsStore } from '../store/useSettingsStore';
 import { Check, ArrowRight } from 'lucide-react-native';
 
 interface SwipeToConfirmProps {
@@ -28,6 +29,7 @@ export const SwipeToConfirm: React.FC<SwipeToConfirmProps> = ({
 }) => {
   const [containerWidth, setContainerWidth] = useState(300);
   const [status, setStatus] = useState<'idle' | 'processing' | 'confirmed'>('idle');
+  const reduceMotion = useSettingsStore((s) => s.reduceMotion);
 
   const thumbSize = 52;
   const padding = 4;
@@ -52,7 +54,9 @@ export const SwipeToConfirm: React.FC<SwipeToConfirmProps> = ({
       setStatus('confirmed');
     } catch {
       setStatus('idle');
-      translateX.value = withSpring(0, springConfig.snappy);
+      translateX.value = reduceMotion
+        ? withTiming(0, { duration: 100 })
+        : withSpring(0, springConfig.snappy);
       isLocked.value = false;
     }
   };
@@ -67,7 +71,7 @@ export const SwipeToConfirm: React.FC<SwipeToConfirmProps> = ({
       translateX.value = newX;
 
       // 50% threshold haptic trigger
-      const progress = newX / maxTranslate;
+      const progress = maxTranslate > 0 ? newX / maxTranslate : 0;
       if (progress >= 0.5 && !hapticTriggered.value) {
         hapticTriggered.value = true;
         runOnJS(triggerThresholdHaptic)();
@@ -75,20 +79,45 @@ export const SwipeToConfirm: React.FC<SwipeToConfirmProps> = ({
         hapticTriggered.value = false;
       }
     })
-    .onEnd(() => {
+    .onEnd((event) => {
       'worklet';
       if (isLocked.value) return;
 
-      const progress = translateX.value / maxTranslate;
-      if (progress >= 0.85) {
-        // Lock gesture & complete
+      const progress = maxTranslate > 0 ? translateX.value / maxTranslate : 0;
+      const velocityX = event.velocityX;
+
+      // Velocity & progress threshold calculations for natural physical feel:
+      // 1. Slow drag: requires >= 75% progress (and not flicked hard backwards)
+      // 2. Fast intentional flick: velocityX >= 450 px/s AND progress >= 25% (safety distance)
+      // 3. Physical momentum projection: projected distance over 0.2s >= 75% AND progress >= 25% AND velocityX > -200
+      const isNormalConfirm = progress >= 0.75 && velocityX > -300;
+      const isFlickConfirm = velocityX >= 450 && progress >= 0.25;
+      const projectedProgress = maxTranslate > 0 ? (translateX.value + velocityX * 0.2) / maxTranslate : 0;
+      const isProjectedConfirm = projectedProgress >= 0.75 && progress >= 0.25 && velocityX > -200;
+
+      const shouldConfirm = isNormalConfirm || isFlickConfirm || isProjectedConfirm;
+
+      if (shouldConfirm) {
         isLocked.value = true;
-        translateX.value = withSpring(maxTranslate, springConfig.stiff);
+        if (reduceMotion) {
+          translateX.value = withTiming(maxTranslate, { duration: 100 });
+        } else {
+          translateX.value = withSpring(maxTranslate, {
+            ...springConfig.stiff,
+            velocity: velocityX,
+          });
+        }
         runOnJS(triggerSuccessHaptic)();
         runOnJS(executeConfirm)();
       } else {
-        // Spring back to start
-        translateX.value = withSpring(0, springConfig.snappy);
+        if (reduceMotion) {
+          translateX.value = withTiming(0, { duration: 100 });
+        } else {
+          translateX.value = withSpring(0, {
+            ...springConfig.snappy,
+            velocity: velocityX,
+          });
+        }
         hapticTriggered.value = false;
       }
     });
@@ -117,6 +146,8 @@ export const SwipeToConfirm: React.FC<SwipeToConfirmProps> = ({
 
   return (
     <View
+      testID="swipe-to-confirm"
+      accessibilityLabel="swipe-to-confirm"
       style={[
         styles.track,
         disabled && styles.disabledTrack,

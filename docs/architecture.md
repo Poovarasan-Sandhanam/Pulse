@@ -14,9 +14,12 @@ src/
 │   └── primitives/       # AnimatedNumber, AnimatedPressable, AnimatedCard
 ├── chart/                # Skia Price Chart Engine
 │   ├── SkiaPriceChart.tsx
+│   ├── ChartNativeOverlay.tsx
 │   ├── ChartCrosshair.tsx
 │   ├── ChartTooltip.tsx
-│   └── ChartGestureHandler.tsx
+│   ├── ChartGestureHandler.tsx
+│   └── utils/
+│       └── dataReduction.ts  # LTTB downsampling & viewport culling engine
 ├── components/           # Reusable physical interaction components
 │   ├── MotionBottomSheet.tsx
 │   └── SwipeToConfirm.tsx
@@ -27,9 +30,9 @@ src/
 │   ├── trading/
 │   ├── activity/
 │   ├── settings/
-│   └── performance/
+│   └── performance/      # Large dataset rendering & thread isolation benchmarks
 ├── services/             # Core logic & simulators
-│   ├── market/           # Geometric Brownian Motion tick engine
+│   ├── market/           # CoinGeckoService & Geometric Brownian Motion generator
 │   ├── trading/          # Simulated order placement service
 │   ├── haptics.ts        # Expo Haptics wrapper
 │   └── sound.ts          # Expo AV feedback
@@ -37,8 +40,33 @@ src/
 └── native/               # Native bridge fallbacks (DevicePerformance)
 ```
 
-## Data Flow & State Management
+## Data Pipeline & Chart Rendering Architecture
 
-1. **Client State**: Zustand stores (`useMarketStore`, `usePortfolioStore`, `useTradeStore`, `useSettingsStore`) hold static and semi-static state.
-2. **Animation State**: High-frequency values (scrub crosshair position, swipe drag translation) are held exclusively in Reanimated Shared Values on the UI thread.
-3. **Simulated Market Feed**: `MarketSimulator` emits price updates via a deterministic random walk (GBM) every 500ms–1500ms without causing full-app re-renders.
+```text
+PULSE CHART DATA
+       │
+  ┌────┴───────────────────────────┐
+  │                                │
+REAL DATA                      SYNTHETIC
+CoinGecko BTC                  GBM Generator
+(1k–10k points)                (10k–100k points)
+  │                                │
+  └────┬───────────────────────────┘
+       ↓
+  Data Pipeline
+       ↓
+  Viewport Culling (Binary Search Domain Bounds)
+       ↓
+  LTTB Data Reduction (Downsample to ~500 points)
+       ↓
+  Coordinate Normalization
+       ↓
+  Skia Path Vector Generation
+       ↓
+  GPU Canvas Rendering + Native RN Overlay (Text Ticks & Accessibility Nodes)
+```
+
+1. **Hybrid Data Ingestion**: Real market data is pulled via `CoinGeckoService` for realistic historical curves (~1k–10k points), while `generateSyntheticDataset` produces controlled 10k–100k point streams to isolate rendering limits.
+2. **Viewport Culling**: `cullViewportData` slices array streams to visible domain bounds in $O(\log N)$ time before path calculation.
+3. **LTTB Downsampling**: `downsampleLTTB` reduces high-density point streams (e.g. 100,000 points) to ~500 target points in sub-15ms execution while strictly preserving min/max local extrema and trend shape.
+4. **Native Text & Accessibility Overlay**: Price/time labels and screen reader nodes (`accessible={true}`, `accessibilityRole="summary"`) are rendered in a native React Native View overlay above the canvas to preserve legibility, dynamic font scaling, and VoiceOver/TalkBack support.

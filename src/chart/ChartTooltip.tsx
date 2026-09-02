@@ -22,14 +22,14 @@ export const ChartTooltip: React.FC<ChartTooltipProps> = ({
   activeTimeText,
 }) => {
   const containerStyle = useAnimatedStyle(() => {
-    const tooltipWidth = 120;
-    const xPos = Math.max(10, Math.min(touchX.value - tooltipWidth / 2, 220));
+    const tooltipWidth = 160;
+    const xPos = Math.max(10, Math.min(touchX.value - tooltipWidth / 2, 190));
 
     return {
       opacity: isTouchActive.value ? 1 : 0,
       transform: [
         { translateX: xPos },
-        { translateY: Math.max(10, touchY.value - 60) },
+        { translateY: Math.max(10, touchY.value - 62) },
       ],
     };
   });
@@ -45,27 +45,31 @@ export const ChartTooltip: React.FC<ChartTooltipProps> = ({
 const styles = StyleSheet.create({
   tooltip: {
     position: 'absolute',
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: 'rgba(18, 24, 38, 0.95)',
     borderRadius: radius.xs,
     borderWidth: 1,
     borderColor: colors.borderHighlight,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 5,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+    minWidth: 150,
   },
   price: {
-    ...typography.caption,
+    ...typography.mono,
+    fontSize: 13,
     color: colors.primaryText,
     fontWeight: '700',
   },
   time: {
+    ...typography.caption,
     fontSize: 10,
     color: colors.secondaryText,
     marginTop: 2,
+    fontWeight: '500',
   },
 });
