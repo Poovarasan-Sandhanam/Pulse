@@ -14,8 +14,9 @@ import { AnimatedCard } from '../../motion/primitives/AnimatedCard';
 import { usePortfolioStore } from '../../store/usePortfolioStore';
 import { useMarketStore } from '../../store/useMarketStore';
 import { useTradeStore } from '../../store/useTradeStore';
-import { TrendingUp, ArrowUpRight, ArrowDownLeft } from 'lucide-react-native';
+import { TrendingUp, ArrowUpRight, ArrowDownLeft, Plus, ArrowDownToLine, ArrowRightLeft } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { SkiaPriceChart } from '../../chart/SkiaPriceChart';
 
 const getGreeting = () => {
   const hour = new Date().getHours();
@@ -45,6 +46,14 @@ export const PortfolioScreen: React.FC = () => {
   const pnlAmount = totalPortfolioValue - initialValue;
   const pnlPercent = (pnlAmount / initialValue) * 100;
   const isPositive = pnlAmount >= 0;
+
+  // Mock data for the portfolio performance chart
+  const portfolioChartData = React.useMemo(() => {
+    return Array.from({ length: 20 }).map((_, i) => ({
+      price: initialValue + (pnlAmount / 20) * (i + 1) + (Math.random() * 100 - 50),
+      timestamp: Date.now() - (20 - i) * 3600000,
+    }));
+  }, [initialValue, pnlAmount]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -76,16 +85,17 @@ export const PortfolioScreen: React.FC = () => {
 
       {/* Hero Portfolio Balance Card */}
       <AnimatedCard index={0} style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>Total Portfolio Value</Text>
-        <AnimatedNumber
-          value={totalPortfolioValue}
-          prefix="£"
-          decimals={2}
-          style={styles.balanceValue}
-        />
-
-        {/* P&L Badge */}
-        <View style={styles.pnlRow}>
+        <View style={styles.balanceHeader}>
+          <View>
+            <Text style={styles.balanceLabel}>Total Portfolio Value</Text>
+            <AnimatedNumber
+              value={totalPortfolioValue}
+              prefix="£"
+              decimals={2}
+              style={styles.balanceValue}
+            />
+          </View>
+          {/* P&L Badge */}
           <View
             style={[
               styles.pnlPill,
@@ -106,6 +116,37 @@ export const PortfolioScreen: React.FC = () => {
               {pnlPercent.toFixed(2)}%)
             </Text>
           </View>
+        </View>
+
+        <View style={styles.chartContainer}>
+          <SkiaPriceChart
+            data={portfolioChartData}
+            width={320}
+            height={120}
+            isPositive={isPositive}
+          />
+        </View>
+
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          <AnimatedPressable style={styles.actionButton}>
+            <View style={styles.actionIcon}>
+              <Plus size={20} color={colors.primaryText} />
+            </View>
+            <Text style={styles.actionText}>Deposit</Text>
+          </AnimatedPressable>
+          <AnimatedPressable style={styles.actionButton}>
+            <View style={styles.actionIcon}>
+              <ArrowDownToLine size={20} color={colors.primaryText} />
+            </View>
+            <Text style={styles.actionText}>Withdraw</Text>
+          </AnimatedPressable>
+          <AnimatedPressable style={styles.actionButton}>
+            <View style={styles.actionIcon}>
+              <ArrowRightLeft size={20} color={colors.primaryText} />
+            </View>
+            <Text style={styles.actionText}>Trade</Text>
+          </AnimatedPressable>
         </View>
       </AnimatedCard>
 
@@ -231,20 +272,59 @@ const styles = StyleSheet.create({
   },
   balanceCard: {
     backgroundColor: colors.surfaceElevated,
-    padding: spacing.lg,
-    borderRadius: radius.md,
+    padding: spacing.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: spacing.xl,
+  },
+  balanceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   balanceLabel: {
     ...typography.caption,
     color: colors.secondaryText,
   },
   balanceValue: {
-    ...typography.monoLarge,
+    ...typography.h1,
     color: colors.primaryText,
     marginVertical: spacing.xs,
+  },
+  chartContainer: {
+    alignItems: 'center',
+    marginVertical: spacing.sm,
+    height: 120,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  actionButton: {
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  actionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderHighlight,
+  },
+  actionText: {
+    ...typography.caption,
+    color: colors.primaryText,
+    fontWeight: '600',
   },
   pnlRow: {
     flexDirection: 'row',
