@@ -17,6 +17,8 @@ import { useTradeStore } from '../../store/useTradeStore';
 import { TrendingUp, ArrowUpRight, ArrowDownLeft, Plus, ArrowDownToLine, ArrowRightLeft } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { SkiaPriceChart } from '../../chart/SkiaPriceChart';
+import { BiometricService } from '../../services/security/BiometricService';
+import { Alert } from 'react-native';
 
 export const PortfolioScreen: React.FC = () => {
   const router = useRouter();
@@ -52,6 +54,13 @@ export const PortfolioScreen: React.FC = () => {
     setRefreshing(true);
     tickMarket();
     setTimeout(() => setRefreshing(false), 600);
+  };
+
+  const handleSecureAction = async (actionName: string) => {
+    const success = await BiometricService.authenticate(`Authenticate to ${actionName}`);
+    if (success) {
+      Alert.alert('Authentication Successful', `Proceeding with ${actionName}...`);
+    }
   };
 
   return (
@@ -122,19 +131,19 @@ export const PortfolioScreen: React.FC = () => {
 
         {/* Quick Actions */}
         <View style={styles.quickActions}>
-          <AnimatedPressable style={styles.actionButton}>
+          <AnimatedPressable style={styles.actionButton} onPress={() => handleSecureAction('Deposit')}>
             <View style={styles.actionIcon}>
               <Plus size={20} color={colors.primaryText} />
             </View>
             <Text style={styles.actionText}>Deposit</Text>
           </AnimatedPressable>
-          <AnimatedPressable style={styles.actionButton}>
+          <AnimatedPressable style={styles.actionButton} onPress={() => handleSecureAction('Withdraw')}>
             <View style={styles.actionIcon}>
               <ArrowDownToLine size={20} color={colors.primaryText} />
             </View>
             <Text style={styles.actionText}>Withdraw</Text>
           </AnimatedPressable>
-          <AnimatedPressable style={styles.actionButton}>
+          <AnimatedPressable style={styles.actionButton} onPress={() => handleSecureAction('Trade')}>
             <View style={styles.actionIcon}>
               <ArrowRightLeft size={20} color={colors.primaryText} />
             </View>
@@ -355,26 +364,25 @@ const styles = StyleSheet.create({
   assetRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.surfaceElevated,
+    padding: spacing.lg,
+    borderRadius: radius.md,
     marginBottom: spacing.sm,
   },
   assetIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surfaceElevated,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.borderHighlight,
   },
   assetSymbolText: {
-    ...typography.caption,
+    ...typography.bodyBold,
     color: colors.primaryText,
-    fontWeight: '700',
   },
   assetInfo: {
     flex: 1,
@@ -386,33 +394,32 @@ const styles = StyleSheet.create({
   assetQty: {
     ...typography.caption,
     color: colors.secondaryText,
+    marginTop: 2,
   },
   assetValueCol: {
     alignItems: 'flex-end',
   },
   assetValue: {
-    ...typography.mono,
+    ...typography.bodyBold,
     color: colors.primaryText,
-    fontWeight: '600',
   },
   assetChange: {
     ...typography.caption,
     fontWeight: '600',
+    marginTop: 2,
   },
   activityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.surfaceElevated,
+    padding: spacing.lg,
+    borderRadius: radius.md,
     marginBottom: spacing.sm,
   },
   activityIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
@@ -427,10 +434,10 @@ const styles = StyleSheet.create({
   activityTime: {
     ...typography.caption,
     color: colors.secondaryText,
+    marginTop: 2,
   },
   activityAmount: {
-    ...typography.mono,
+    ...typography.bodyBold,
     color: colors.primaryText,
-    fontWeight: '600',
   },
 });

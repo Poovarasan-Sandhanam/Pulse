@@ -21,17 +21,36 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B0E14"
       },
-      "package": "com.pulse.trading"
+      "package": "com.pulse.trading",
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Pulse to use Face ID to authenticate you."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "4f3db3ea-eae0-447d-abaa-cbabb8bd74b3"
+      }
+    },
+    "owner": "poovarasanksp"
   }
 }

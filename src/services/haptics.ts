@@ -1,30 +1,30 @@
-import * as Haptics from 'expo-haptics';
+import { playHaptic } from '../../modules/pulse-core';
 import { useSettingsStore } from '../store/useSettingsStore';
 
 export const haptics = {
   tap: () => {
     if (useSettingsStore.getState().hapticsEnabled) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      try { playHaptic('light'); } catch (e) {}
     }
   },
   selection: () => {
     if (useSettingsStore.getState().hapticsEnabled) {
-      Haptics.selectionAsync().catch(() => {});
+      try { playHaptic('soft'); } catch (e) {}
     }
   },
   threshold: () => {
     if (useSettingsStore.getState().hapticsEnabled) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      try { playHaptic('medium'); } catch (e) {}
     }
   },
   success: () => {
     if (useSettingsStore.getState().hapticsEnabled) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      try { playHaptic('rigid'); } catch (e) {}
     }
   },
   error: () => {
     if (useSettingsStore.getState().hapticsEnabled) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      try { playHaptic('heavy'); } catch (e) {}
     }
   },
 };
