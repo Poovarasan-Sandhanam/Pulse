@@ -6,5 +6,6 @@ module.exports = {
   moduleNameMapper: {
     '^expo-av$': '<rootDir>/src/tests/__mocks__/expo-av.js',
     '^expo-haptics$': '<rootDir>/src/tests/__mocks__/expo-haptics.js',
+    '^.*/modules/pulse-core$': '<rootDir>/src/tests/__mocks__/pulse-core.js',
   },
 };

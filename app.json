@@ -7,11 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "scheme": "pulse",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0B0E14"
-    },
+
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.pulse.trading",
@@ -19,6 +15,7 @@
         "ITSAppUsesNonExemptEncryption": false
       }
     },
+
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -30,22 +27,39 @@
         "android.permission.USE_FINGERPRINT"
       ]
     },
+
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
+
     "plugins": [
       "expo-router",
+
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0B0E14"
+        }
+      ],
+
       [
         "expo-local-authentication",
         {
           "faceIDPermission": "Allow Pulse to use Face ID to authenticate you."
         }
-      ]
+      ],
+
+      "expo-font",
+      "expo-status-bar"
     ],
+
     "experiments": {
       "typedRoutes": true
     },
+
     "extra": {
       "router": {
         "origin": false
@@ -54,6 +68,7 @@
         "projectId": "4f3db3ea-eae0-447d-abaa-cbabb8bd74b3"
       }
     },
+
     "owner": "poovarasanksp"
   }
 }
