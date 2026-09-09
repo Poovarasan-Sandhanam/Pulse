@@ -17,6 +17,8 @@ import { useTradeStore } from '../../store/useTradeStore';
 import { TrendingUp, ArrowUpRight, ArrowDownLeft, Plus, ArrowDownToLine, ArrowRightLeft } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { SkiaPriceChart } from '../../chart/SkiaPriceChart';
+import { BiometricService } from '../../services/security/BiometricService';
+import { Alert } from 'react-native';
 
 const getGreeting = () => {
   const hour = new Date().getHours();
@@ -30,7 +32,7 @@ export const PortfolioScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
 
-  const { cashBalance, holdings } = usePortfolioStore();
+  const { cashBalance, holdings, initialTotalValue } = usePortfolioStore();
   const assets = useMarketStore((s) => s.assets);
   const tickMarket = useMarketStore((s) => s.tickMarket);
   const orders = useTradeStore((s) => s.orders);
@@ -42,23 +44,43 @@ export const PortfolioScreen: React.FC = () => {
   }, 0);
 
   const totalPortfolioValue = cashBalance + holdingsValue;
-  const initialValue = 12054.20;
-  const pnlAmount = totalPortfolioValue - initialValue;
-  const pnlPercent = (pnlAmount / initialValue) * 100;
+  const pnlAmount = totalPortfolioValue - initialTotalValue;
+  const pnlPercent = (pnlAmount / initialTotalValue) * 100;
   const isPositive = pnlAmount >= 0;
 
-  // Mock data for the portfolio performance chart
+  // Derive greeting from actual time of day
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  // Deterministic smooth portfolio performance chart (no Math.random — avoids flicker on market ticks)
   const portfolioChartData = React.useMemo(() => {
-    return Array.from({ length: 20 }).map((_, i) => ({
-      price: initialValue + (pnlAmount / 20) * (i + 1) + (Math.random() * 100 - 50),
-      timestamp: Date.now() - (20 - i) * 3600000,
-    }));
-  }, [initialValue, pnlAmount]);
+    const steps = 20;
+    return Array.from({ length: steps }).map((_, i) => {
+      const progress = (i + 1) / steps;
+      // Eased curve: ease-in-out using sine approximation
+      const easedProgress = 0.5 - Math.cos(progress * Math.PI) / 2;
+      return {
+        price: initialTotalValue + pnlAmount * easedProgress,
+        timestamp: Date.now() - (steps - i) * 3600000,
+      };
+    });
+  }, [initialTotalValue, pnlAmount]);
 
   const onRefresh = () => {
     setRefreshing(true);
     tickMarket();
     setTimeout(() => setRefreshing(false), 600);
+  };
+
+  const handleSecureAction = async (actionName: string) => {
+    const success = await BiometricService.authenticate(`Authenticate to ${actionName}`);
+    if (success) {
+      Alert.alert('Authentication Successful', `Proceeding with ${actionName}...`);
+    }
   };
 
   return (
@@ -90,7 +112,7 @@ export const PortfolioScreen: React.FC = () => {
             <Text style={styles.balanceLabel}>Total Portfolio Value</Text>
             <AnimatedNumber
               value={totalPortfolioValue}
-              prefix="£"
+              prefix="$"
               decimals={2}
               style={styles.balanceValue}
             />
@@ -112,7 +134,7 @@ export const PortfolioScreen: React.FC = () => {
                 { color: isPositive ? colors.positive : colors.negative },
               ]}
             >
-              {isPositive ? '+' : ''}£{pnlAmount.toFixed(2)} ({isPositive ? '+' : ''}
+              {isPositive ? '+' : ''}${pnlAmount.toFixed(2)} ({isPositive ? '+' : ''}
               {pnlPercent.toFixed(2)}%)
             </Text>
           </View>
@@ -129,19 +151,19 @@ export const PortfolioScreen: React.FC = () => {
 
         {/* Quick Actions */}
         <View style={styles.quickActions}>
-          <AnimatedPressable style={styles.actionButton}>
+          <AnimatedPressable style={styles.actionButton} onPress={() => handleSecureAction('Deposit')}>
             <View style={styles.actionIcon}>
               <Plus size={20} color={colors.primaryText} />
             </View>
             <Text style={styles.actionText}>Deposit</Text>
           </AnimatedPressable>
-          <AnimatedPressable style={styles.actionButton}>
+          <AnimatedPressable style={styles.actionButton} onPress={() => handleSecureAction('Withdraw')}>
             <View style={styles.actionIcon}>
               <ArrowDownToLine size={20} color={colors.primaryText} />
             </View>
             <Text style={styles.actionText}>Withdraw</Text>
           </AnimatedPressable>
-          <AnimatedPressable style={styles.actionButton}>
+          <AnimatedPressable style={styles.actionButton} onPress={() => handleSecureAction('Trade')}>
             <View style={styles.actionIcon}>
               <ArrowRightLeft size={20} color={colors.primaryText} />
             </View>
@@ -182,7 +204,7 @@ export const PortfolioScreen: React.FC = () => {
                 </View>
 
                 <View style={styles.assetValueCol}>
-                  <Text style={styles.assetValue}>£{value.toFixed(2)}</Text>
+                  <Text style={styles.assetValue}>${value.toFixed(2)}</Text>
                   <Text
                     style={[
                       styles.assetChange,
@@ -238,7 +260,7 @@ export const PortfolioScreen: React.FC = () => {
             </View>
 
             <Text style={styles.activityAmount}>
-              {order.side === 'BUY' ? '-' : '+'}£{order.amount.toFixed(2)}
+              {order.side === 'BUY' ? '-' : '+'}${order.amount.toFixed(2)}
             </Text>
           </View>
         </AnimatedCard>
@@ -326,11 +348,7 @@ const styles = StyleSheet.create({
     color: colors.primaryText,
     fontWeight: '600',
   },
-  pnlRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.xs,
-  },
+  // pnlRow was defined but never used — removed
   pnlPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -362,26 +380,25 @@ const styles = StyleSheet.create({
   assetRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.surfaceElevated,
+    padding: spacing.lg,
+    borderRadius: radius.md,
     marginBottom: spacing.sm,
   },
   assetIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surfaceElevated,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.borderHighlight,
   },
   assetSymbolText: {
-    ...typography.caption,
+    ...typography.bodyBold,
     color: colors.primaryText,
-    fontWeight: '700',
   },
   assetInfo: {
     flex: 1,
@@ -393,33 +410,32 @@ const styles = StyleSheet.create({
   assetQty: {
     ...typography.caption,
     color: colors.secondaryText,
+    marginTop: 2,
   },
   assetValueCol: {
     alignItems: 'flex-end',
   },
   assetValue: {
-    ...typography.mono,
+    ...typography.bodyBold,
     color: colors.primaryText,
-    fontWeight: '600',
   },
   assetChange: {
     ...typography.caption,
     fontWeight: '600',
+    marginTop: 2,
   },
   activityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.surfaceElevated,
+    padding: spacing.lg,
+    borderRadius: radius.md,
     marginBottom: spacing.sm,
   },
   activityIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
@@ -434,10 +450,10 @@ const styles = StyleSheet.create({
   activityTime: {
     ...typography.caption,
     color: colors.secondaryText,
+    marginTop: 2,
   },
   activityAmount: {
-    ...typography.mono,
+    ...typography.bodyBold,
     color: colors.primaryText,
-    fontWeight: '600',
   },
 });

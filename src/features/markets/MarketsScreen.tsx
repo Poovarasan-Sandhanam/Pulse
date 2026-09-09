@@ -90,18 +90,21 @@ const MarketAssetRow = memo(({ asset, onPress }: { asset: CryptoAsset; onPress: 
         </Text>
       </View>
 
-      {/* Watchlist Star */}
-      <AnimatedPressable
+      {/* Watchlist Star — wrapped in a View that captures touch to prevent propagation to row */}
+      <View
+        onStartShouldSetResponder={() => true}
+        onTouchEnd={(e) => {
+          e.stopPropagation();
+          toggleWatchlist(asset.id);
+        }}
         style={styles.starButton}
-        onPress={() => toggleWatchlist(asset.id)}
-        enableHaptic
       >
         <Star
           size={18}
           color={asset.isWatchlisted ? colors.amber : colors.tertiaryText}
           fill={asset.isWatchlisted ? colors.amber : 'transparent'}
         />
-      </AnimatedPressable>
+      </View>
     </AnimatedPressable>
   );
 });
@@ -250,9 +253,7 @@ const styles = StyleSheet.create({
     color: colors.primaryText,
     fontWeight: '700',
   },
-  listContent: {
-    padding: spacing.md,
-  },
+  // Note: listContent was defined but never used — removed
   row: {
     flexDirection: 'row',
     alignItems: 'center',

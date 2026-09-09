@@ -17,7 +17,7 @@ import { Loader } from '../../components/Loader';
 const ChartGestureHandler = lazy(() => import('../../chart/ChartGestureHandler').then((m) => ({ default: m.ChartGestureHandler })));
 const TradeBottomSheet = lazy(() => import('../trading/TradeBottomSheet').then((m) => ({ default: m.TradeBottomSheet })));
 import { ArrowLeft, TrendingUp, TrendingDown, Clock } from 'lucide-react-native';
-import { fetchCoinGeckoMarketData } from '../../services/market/CoinGeckoService';
+import { fetchCoinGeckoMarketData, getGeckoId } from '../../services/market/CoinGeckoService';
 import { PricePoint } from '../../services/market/MarketSimulator';
 import { haptics } from '../../services/haptics';
 
@@ -53,16 +53,7 @@ export const AssetDetailsScreen: React.FC<AssetDetailsScreenProps> = ({
     setIsLoadingTimeframe(true);
     setScrubbedPoint(null);
 
-    const coinGeckoIdMap: Record<string, string> = {
-      btc: 'bitcoin',
-      eth: 'ethereum',
-      sol: 'solana',
-      xrp: 'ripple',
-      ada: 'cardano',
-      doge: 'dogecoin',
-    };
-
-    const geckoId = coinGeckoIdMap[asset.id] || 'bitcoin';
+    const geckoId = getGeckoId(asset.id);
     const daysMap: Record<string, number> = {
       '1H': 1,
       '1D': 1,
@@ -303,7 +294,7 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.md,
     paddingTop: spacing.xl,
-    paddingBottom: 100,
+    // paddingBottom handled dynamically via contentContainerStyle (insets.bottom + 100)
   },
   header: {
     flexDirection: 'row',

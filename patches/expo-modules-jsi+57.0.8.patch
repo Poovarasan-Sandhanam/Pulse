@@ -1,0 +1,39 @@
+diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h
+index 6115e87..a524091 100644
+--- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h
++++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h
+@@ -7,6 +7,15 @@
+ 
+ namespace expo {
+ 
++class RuntimeScheduler;
++
++} // namespace expo
++
++void retainRuntimeScheduler(expo::RuntimeScheduler *scheduler);
++void releaseRuntimeScheduler(expo::RuntimeScheduler *scheduler);
++
++namespace expo {
++
+ /**
+  Wrapper around React Native's RuntimeScheduler. The native scheduler reference
+  and dispatch trampoline are supplied by the host (e.g. ExpoReactNativeFactory)
+@@ -18,7 +27,8 @@ namespace expo {
+  Priority values mirror facebook::react::SchedulerPriority — kept here as a
+  plain enum so we don't include the React header.
+  */
+-class RuntimeScheduler {
++class SWIFT_SHARED_REFERENCE(retainRuntimeScheduler, releaseRuntimeScheduler)
++    RuntimeScheduler {
+ public:
+   enum class Priority : int {
+     ImmediatePriority = 1,
+@@ -87,7 +97,7 @@ public:
+       delete this;
+     }
+   }
+-} SWIFT_SHARED_REFERENCE(retainRuntimeScheduler, releaseRuntimeScheduler);
++};
+ 
+ } // namespace expo
+ 

@@ -7,7 +7,7 @@ export interface AssetHolding {
 }
 
 interface PortfolioState {
-  cashBalance: number; // GBP cash
+  cashBalance: number; // USD cash
   holdings: Record<string, number>; // assetId -> crypto quantity (e.g. 'btc': 0.0826)
   initialTotalValue: number;
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -30,6 +30,17 @@ export const TradeBottomSheet: React.FC<TradeBottomSheetProps> = ({
 }) => {
   const [amountStr, setAmountStr] = useState('500');
   const [isCompleted, setIsCompleted] = useState(false);
+  // Track a session key so SwipeToConfirm fully remounts (resets shared values) each open
+  const sessionRef = useRef(0);
+
+  // Reset all form state whenever the sheet opens
+  useEffect(() => {
+    if (isVisible) {
+      sessionRef.current += 1;
+      setAmountStr('500');
+      setIsCompleted(false);
+    }
+  }, [isVisible]);
 
   const { cashBalance, holdings } = usePortfolioStore();
 
@@ -73,7 +84,7 @@ export const TradeBottomSheet: React.FC<TradeBottomSheetProps> = ({
             <Text style={styles.successTitle}>
               {asset.symbol} {side === 'BUY' ? 'Purchased' : 'Sold'}
             </Text>
-            <Text style={styles.successAmount}>£{amount.toFixed(2)}</Text>
+            <Text style={styles.successAmount}>${amount.toFixed(2)}</Text>
             <Text style={styles.successQuantity}>
               {receiveQuantity} {asset.symbol}
             </Text>
@@ -89,16 +100,16 @@ export const TradeBottomSheet: React.FC<TradeBottomSheetProps> = ({
               <Text style={styles.balanceLabel}>Available</Text>
               <Text style={styles.balanceValue}>
                 {side === 'BUY'
-                  ? `£${cashBalance.toFixed(2)}`
-                  : `${userQty.toFixed(4)} ${asset.symbol} (£${(userQty * asset.currentPrice).toFixed(2)})`}
+                  ? `$${cashBalance.toFixed(2)}`
+                  : `${userQty.toFixed(4)} ${asset.symbol} ($${(userQty * asset.currentPrice).toFixed(2)})`}
               </Text>
             </View>
 
             {/* Amount Input */}
             <View style={styles.inputCard}>
-              <Text style={styles.inputLabel}>Amount (GBP)</Text>
+              <Text style={styles.inputLabel}>Amount (USD)</Text>
               <View style={styles.inputRow}>
-                <Text style={styles.currencyPrefix}>£</Text>
+                <Text style={styles.currencyPrefix}>$</Text>
                 <TextInput
                   style={styles.input}
                   keyboardType="numeric"
@@ -121,26 +132,50 @@ export const TradeBottomSheet: React.FC<TradeBottomSheetProps> = ({
             {/* Calculation Breakdown */}
             <View style={styles.breakdownCard}>
               <View style={styles.breakdownRow}>
-                <Text style={styles.bdLabel}>You receive</Text>
+                {/* BUY: show crypto received. SELL: show USD received after fee */}
+                <Text style={styles.bdLabel}>
+                  {side === 'BUY' ? 'You receive' : 'You receive (USD)'}
+                </Text>
                 <Text style={styles.bdValue}>
-                  {receiveQuantity} {asset.symbol}
+                  {side === 'BUY'
+                    ? `${receiveQuantity} ${asset.symbol}`
+                    : `$${Math.max(0, amount - estimatedFee).toFixed(2)}`}
                 </Text>
               </View>
 
+              {side === 'BUY' && (
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.bdLabel}>Crypto sold</Text>
+                  <Text style={styles.bdValue}>
+                    {amount > 0 ? (amount / asset.currentPrice).toFixed(6) : '0'} {asset.symbol}
+                  </Text>
+                </View>
+              )}
+
+              {side === 'SELL' && (
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.bdLabel}>Crypto sold</Text>
+                  <Text style={styles.bdValue}>
+                    {amount > 0 ? (amount / asset.currentPrice).toFixed(6) : '0'} {asset.symbol}
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.breakdownRow}>
                 <Text style={styles.bdLabel}>Execution Price</Text>
-                <Text style={styles.bdValue}>£{asset.currentPrice.toFixed(2)}</Text>
+                <Text style={styles.bdValue}>${asset.currentPrice.toFixed(2)}</Text>
               </View>
 
               <View style={styles.breakdownRow}>
                 <Text style={styles.bdLabel}>Estimated fee (0.5%)</Text>
-                <Text style={styles.bdValue}>£{estimatedFee.toFixed(2)}</Text>
+                <Text style={styles.bdValue}>${estimatedFee.toFixed(2)}</Text>
               </View>
             </View>
 
-            {/* Hero Swipe to Confirm */}
+            {/* Hero Swipe to Confirm — keyed by session so shared values reset each open */}
             <View style={styles.swipeContainer}>
               <SwipeToConfirm
+                key={sessionRef.current}
                 label={`Swipe to ${side}`}
                 disabled={!isValidAmount}
                 onConfirm={handleConfirmTrade}

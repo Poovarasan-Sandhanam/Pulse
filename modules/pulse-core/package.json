@@ -1,0 +1,12 @@
+{
+  "name": "pulse-core",
+  "version": "1.0.0",
+  "description": "Custom native module for Pulse",
+  "main": "index.ts",
+  "author": "Pulse",
+  "license": "MIT",
+  "dependencies": {},
+  "peerDependencies": {
+    "expo": "*"
+  }
+}

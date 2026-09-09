@@ -22,7 +22,7 @@ describe('Order Service & Portfolio Calculations', () => {
       price: 50000,
     });
 
-    expect(order.fee).toBe(2.5); // 0.5% of £500
+    expect(order.fee).toBe(2.5); // 0.5% of $500
     expect(order.status).toBe('completed');
 
     const updatedCash = usePortfolioStore.getState().cashBalance;

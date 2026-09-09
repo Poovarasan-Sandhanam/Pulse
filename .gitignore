@@ -11,6 +11,10 @@ web-build/
 # Native builds (Expo prebuild)
 /ios
 /android
+.gradle/
+**/android/.gradle/
+**/android/build/
+
 
 # Logs
 *.log

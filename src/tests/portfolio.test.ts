@@ -12,7 +12,7 @@ describe('Portfolio Store', () => {
   it('updates holdings and cash balance correctly', () => {
     const { updateHolding } = usePortfolioStore.getState();
 
-    // Buy 0.05 BTC for £250
+    // Buy 0.05 BTC for $250
     updateHolding('btc', 0.05, -250);
 
     const state = usePortfolioStore.getState();
@@ -23,7 +23,7 @@ describe('Portfolio Store', () => {
   it('handles sell transaction updating cash balance and holdings', () => {
     const { updateHolding } = usePortfolioStore.getState();
 
-    // Sell 0.05 BTC for £250
+    // Sell 0.05 BTC for $250
     updateHolding('btc', -0.05, 250);
 
     const state = usePortfolioStore.getState();

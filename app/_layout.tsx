@@ -10,17 +10,25 @@ import { useMarketStore } from '../src/store/useMarketStore';
 
 const queryClient = new QueryClient();
 
+// CoinGecko's free tier allows only a handful of calls per minute, so real
+// prices are re-anchored on this interval while the tick animates between them.
+const LIVE_PRICE_REFRESH_MS = 60_000;
+const TICK_MS = 1000;
+
 export default function RootLayout() {
   const tickMarket = useMarketStore((s) => s.tickMarket);
+  const fetchRealMarketPrices = useMarketStore((s) => s.fetchRealMarketPrices);
 
-  // Background Market Simulator Tick Interval (500ms - 1500ms)
   useEffect(() => {
-    const interval = setInterval(() => {
-      tickMarket();
-    }, 1000);
-
+    const interval = setInterval(tickMarket, TICK_MS);
     return () => clearInterval(interval);
   }, [tickMarket]);
+
+  useEffect(() => {
+    fetchRealMarketPrices();
+    const interval = setInterval(fetchRealMarketPrices, LIVE_PRICE_REFRESH_MS);
+    return () => clearInterval(interval);
+  }, [fetchRealMarketPrices]);
 
   return (
     <GestureHandlerRootView style={styles.container}>

@@ -5,7 +5,7 @@ import { FlashList } from '@shopify/flash-list';
 import { colors, radius, spacing, typography } from '../../theme/tokens';
 import { useTradeStore, TradeOrder } from '../../store/useTradeStore';
 import { AnimatedCard } from '../../motion/primitives/AnimatedCard';
-import { ArrowDownLeft, ArrowUpRight, CheckCircle2, Clock } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, CheckCircle2, Clock, Activity } from 'lucide-react-native';
 
 export const ActivityScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -47,7 +47,7 @@ export const ActivityScreen: React.FC = () => {
 
           <View style={styles.valueCol}>
             <Text style={styles.amount}>
-              {isBuy ? '-' : '+'}£{item.amount.toFixed(2)}
+              {isBuy ? '-' : '+'}${item.amount.toFixed(2)}
             </Text>
             <View style={styles.statusRow}>
               {isCompleted ? (
@@ -87,6 +87,13 @@ export const ActivityScreen: React.FC = () => {
           padding: spacing.md,
           paddingBottom: insets.bottom + spacing.md,
         }}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Activity size={48} color={colors.tertiaryText} />
+            <Text style={styles.emptyTitle}>No transactions yet</Text>
+            <Text style={styles.emptySubtitle}>Your simulated trades will appear here</Text>
+          </View>
+        }
       />
     </View>
   );
@@ -110,8 +117,23 @@ const styles = StyleSheet.create({
     color: colors.secondaryText,
     marginTop: 2,
   },
-  listContent: {
-    padding: spacing.md,
+  // Note: listContent style was defined but never used — removed
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 80,
+    gap: spacing.sm,
+  },
+  emptyTitle: {
+    ...typography.h3,
+    color: colors.secondaryText,
+    marginTop: spacing.md,
+  },
+  emptySubtitle: {
+    ...typography.caption,
+    color: colors.tertiaryText,
+    textAlign: 'center',
   },
   card: {
     flexDirection: 'row',
