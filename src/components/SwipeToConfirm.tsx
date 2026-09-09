@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -33,7 +33,12 @@ export const SwipeToConfirm: React.FC<SwipeToConfirmProps> = ({
 
   const thumbSize = 52;
   const padding = 4;
-  const maxTranslate = containerWidth - thumbSize - padding * 2;
+  const maxTranslate = useSharedValue(containerWidth - thumbSize - padding * 2);
+
+  // Keep maxTranslate shared value in sync with containerWidth
+  useEffect(() => {
+    maxTranslate.value = containerWidth - thumbSize - padding * 2;
+  }, [containerWidth, maxTranslate]);
 
   const translateX = useSharedValue(0);
   const isLocked = useSharedValue(false);
@@ -67,11 +72,11 @@ export const SwipeToConfirm: React.FC<SwipeToConfirmProps> = ({
       'worklet';
       if (isLocked.value) return;
 
-      const newX = Math.max(0, Math.min(event.translationX, maxTranslate));
+      const newX = Math.max(0, Math.min(event.translationX, maxTranslate.value));
       translateX.value = newX;
 
       // 50% threshold haptic trigger
-      const progress = maxTranslate > 0 ? newX / maxTranslate : 0;
+      const progress = maxTranslate.value > 0 ? newX / maxTranslate.value : 0;
       if (progress >= 0.5 && !hapticTriggered.value) {
         hapticTriggered.value = true;
         runOnJS(triggerThresholdHaptic)();
@@ -83,7 +88,7 @@ export const SwipeToConfirm: React.FC<SwipeToConfirmProps> = ({
       'worklet';
       if (isLocked.value) return;
 
-      const progress = maxTranslate > 0 ? translateX.value / maxTranslate : 0;
+      const progress = maxTranslate.value > 0 ? translateX.value / maxTranslate.value : 0;
       const velocityX = event.velocityX;
 
       // Velocity & progress threshold calculations for natural physical feel:
@@ -92,7 +97,7 @@ export const SwipeToConfirm: React.FC<SwipeToConfirmProps> = ({
       // 3. Physical momentum projection: projected distance over 0.2s >= 75% AND progress >= 25% AND velocityX > -200
       const isNormalConfirm = progress >= 0.75 && velocityX > -300;
       const isFlickConfirm = velocityX >= 450 && progress >= 0.25;
-      const projectedProgress = maxTranslate > 0 ? (translateX.value + velocityX * 0.2) / maxTranslate : 0;
+      const projectedProgress = maxTranslate.value > 0 ? (translateX.value + velocityX * 0.2) / maxTranslate.value : 0;
       const isProjectedConfirm = projectedProgress >= 0.75 && progress >= 0.25 && velocityX > -200;
 
       const shouldConfirm = isNormalConfirm || isFlickConfirm || isProjectedConfirm;
@@ -100,9 +105,9 @@ export const SwipeToConfirm: React.FC<SwipeToConfirmProps> = ({
       if (shouldConfirm) {
         isLocked.value = true;
         if (reduceMotion) {
-          translateX.value = withTiming(maxTranslate, { duration: 100 });
+          translateX.value = withTiming(maxTranslate.value, { duration: 100 });
         } else {
-          translateX.value = withSpring(maxTranslate, {
+          translateX.value = withSpring(maxTranslate.value, {
             ...springConfig.stiff,
             velocity: velocityX,
           });
@@ -137,7 +142,7 @@ export const SwipeToConfirm: React.FC<SwipeToConfirmProps> = ({
   const labelAnimatedStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       translateX.value,
-      [0, maxTranslate * 0.6],
+      [0, maxTranslate.value * 0.6],
       [1, 0],
       Extrapolation.CLAMP
     );

@@ -1,8 +1,8 @@
-import { requireNativeModule } from 'expo-modules-core';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 
-// This call loads the native module object from the JSI registry.
-const PulseCore = requireNativeModule('PulseCore');
+// Null in Expo Go and on web, where the native module isn't linked.
+const PulseCore = requireOptionalNativeModule('PulseCore');
 
 export function playHaptic(style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') {
-  return PulseCore.playHaptic(style);
+  return PulseCore?.playHaptic(style);
 }

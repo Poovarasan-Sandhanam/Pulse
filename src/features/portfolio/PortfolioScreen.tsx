@@ -25,7 +25,7 @@ export const PortfolioScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
 
-  const { cashBalance, holdings } = usePortfolioStore();
+  const { cashBalance, holdings, initialTotalValue } = usePortfolioStore();
   const assets = useMarketStore((s) => s.assets);
   const tickMarket = useMarketStore((s) => s.tickMarket);
   const orders = useTradeStore((s) => s.orders);
@@ -37,18 +37,31 @@ export const PortfolioScreen: React.FC = () => {
   }, 0);
 
   const totalPortfolioValue = cashBalance + holdingsValue;
-  const initialValue = 12054.20;
-  const pnlAmount = totalPortfolioValue - initialValue;
-  const pnlPercent = (pnlAmount / initialValue) * 100;
+  const pnlAmount = totalPortfolioValue - initialTotalValue;
+  const pnlPercent = (pnlAmount / initialTotalValue) * 100;
   const isPositive = pnlAmount >= 0;
 
-  // Mock data for the portfolio performance chart
+  // Derive greeting from actual time of day
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  // Deterministic smooth portfolio performance chart (no Math.random — avoids flicker on market ticks)
   const portfolioChartData = React.useMemo(() => {
-    return Array.from({ length: 20 }).map((_, i) => ({
-      price: initialValue + (pnlAmount / 20) * (i + 1) + (Math.random() * 100 - 50),
-      timestamp: Date.now() - (20 - i) * 3600000,
-    }));
-  }, [initialValue, pnlAmount]);
+    const steps = 20;
+    return Array.from({ length: steps }).map((_, i) => {
+      const progress = (i + 1) / steps;
+      // Eased curve: ease-in-out using sine approximation
+      const easedProgress = 0.5 - Math.cos(progress * Math.PI) / 2;
+      return {
+        price: initialTotalValue + pnlAmount * easedProgress,
+        timestamp: Date.now() - (steps - i) * 3600000,
+      };
+    });
+  }, [initialTotalValue, pnlAmount]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -81,7 +94,7 @@ export const PortfolioScreen: React.FC = () => {
     >
       {/* Greeting Header */}
       <View style={styles.header}>
-        <Text style={styles.greeting}>Good evening</Text>
+        <Text style={styles.greeting}>{getGreeting()}</Text>
         <Text style={styles.subtitle}>Portfolio Overview</Text>
       </View>
 
@@ -328,11 +341,7 @@ const styles = StyleSheet.create({
     color: colors.primaryText,
     fontWeight: '600',
   },
-  pnlRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.xs,
-  },
+  // pnlRow was defined but never used — removed
   pnlPill: {
     flexDirection: 'row',
     alignItems: 'center',

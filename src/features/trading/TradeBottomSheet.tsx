@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -30,6 +30,17 @@ export const TradeBottomSheet: React.FC<TradeBottomSheetProps> = ({
 }) => {
   const [amountStr, setAmountStr] = useState('500');
   const [isCompleted, setIsCompleted] = useState(false);
+  // Track a session key so SwipeToConfirm fully remounts (resets shared values) each open
+  const sessionRef = useRef(0);
+
+  // Reset all form state whenever the sheet opens
+  useEffect(() => {
+    if (isVisible) {
+      sessionRef.current += 1;
+      setAmountStr('500');
+      setIsCompleted(false);
+    }
+  }, [isVisible]);
 
   const { cashBalance, holdings } = usePortfolioStore();
 
@@ -121,11 +132,34 @@ export const TradeBottomSheet: React.FC<TradeBottomSheetProps> = ({
             {/* Calculation Breakdown */}
             <View style={styles.breakdownCard}>
               <View style={styles.breakdownRow}>
-                <Text style={styles.bdLabel}>You receive</Text>
+                {/* BUY: show crypto received. SELL: show GBP received after fee */}
+                <Text style={styles.bdLabel}>
+                  {side === 'BUY' ? 'You receive' : 'You receive (GBP)'}
+                </Text>
                 <Text style={styles.bdValue}>
-                  {receiveQuantity} {asset.symbol}
+                  {side === 'BUY'
+                    ? `${receiveQuantity} ${asset.symbol}`
+                    : `£${Math.max(0, amount - estimatedFee).toFixed(2)}`}
                 </Text>
               </View>
+
+              {side === 'BUY' && (
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.bdLabel}>Crypto sold</Text>
+                  <Text style={styles.bdValue}>
+                    {amount > 0 ? (amount / asset.currentPrice).toFixed(6) : '0'} {asset.symbol}
+                  </Text>
+                </View>
+              )}
+
+              {side === 'SELL' && (
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.bdLabel}>Crypto sold</Text>
+                  <Text style={styles.bdValue}>
+                    {amount > 0 ? (amount / asset.currentPrice).toFixed(6) : '0'} {asset.symbol}
+                  </Text>
+                </View>
+              )}
 
               <View style={styles.breakdownRow}>
                 <Text style={styles.bdLabel}>Execution Price</Text>
@@ -138,9 +172,10 @@ export const TradeBottomSheet: React.FC<TradeBottomSheetProps> = ({
               </View>
             </View>
 
-            {/* Hero Swipe to Confirm */}
+            {/* Hero Swipe to Confirm — keyed by session so shared values reset each open */}
             <View style={styles.swipeContainer}>
               <SwipeToConfirm
+                key={sessionRef.current}
                 label={`Swipe to ${side}`}
                 disabled={!isValidAmount}
                 onConfirm={handleConfirmTrade}

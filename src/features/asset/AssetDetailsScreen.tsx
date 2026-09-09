@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.md,
     paddingTop: spacing.xl,
-    paddingBottom: 100,
+    // paddingBottom handled dynamically via contentContainerStyle (insets.bottom + 100)
   },
   header: {
     flexDirection: 'row',
@@ -209,10 +209,7 @@ const styles = StyleSheet.create({
     ...typography.monoLarge,
     color: colors.primaryText,
   },
-  pnlRow: {
-    flexDirection: 'row',
-    marginTop: spacing.xs,
-  },
+  // pnlRow was defined but never used — removed
   pnlPill: {
     flexDirection: 'row',
     alignItems: 'center',
