@@ -20,6 +20,13 @@ import { SkiaPriceChart } from '../../chart/SkiaPriceChart';
 import { BiometricService } from '../../services/security/BiometricService';
 import { Alert } from 'react-native';
 
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+};
+
 export const PortfolioScreen: React.FC = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();

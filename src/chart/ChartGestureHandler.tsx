@@ -13,6 +13,7 @@ interface ChartGestureHandlerProps {
   width: number;
   height: number;
   isPositive?: boolean;
+  onPointScrubbed?: (point: PricePoint | null) => void;
 }
 
 export const ChartGestureHandler: React.FC<ChartGestureHandlerProps> = ({
@@ -20,6 +21,7 @@ export const ChartGestureHandler: React.FC<ChartGestureHandlerProps> = ({
   width,
   height,
   isPositive = true,
+  onPointScrubbed,
 }) => {
   const touchX = useSharedValue(0);
   const touchY = useSharedValue(0);
@@ -42,13 +44,40 @@ export const ChartGestureHandler: React.FC<ChartGestureHandlerProps> = ({
     haptics.selection();
   }, []);
 
-  const updateTooltipJS = useCallback((price: number, timestamp: number) => {
-    const formattedPrice = `£${price.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`;
-    const dateObj = new Date(timestamp);
-    const timeStr = `${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}:${dateObj.getSeconds().toString().padStart(2, '0')}`;
-    setActivePriceText(formattedPrice);
-    setActiveTimeText(timeStr);
-  }, []);
+  const updateTooltipJS = useCallback(
+    (point: PricePoint) => {
+      const price = point.price;
+      const timestamp = point.timestamp;
+
+      const formattedPrice = `$${
+        price >= 1000
+          ? price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          : price.toFixed(4)
+      }`;
+
+      const dateObj = new Date(timestamp);
+      // Format full date & time (e.g. Sep 2, 2026, 14:23:05)
+      const dateStr = dateObj.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+      const timeStr = dateObj.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      });
+
+      setActivePriceText(formattedPrice);
+      setActiveTimeText(`${dateStr} • ${timeStr}`);
+
+      if (onPointScrubbed) {
+        onPointScrubbed(point);
+      }
+    },
+    [onPointScrubbed]
+  );
 
   const updateScrubPoint = (x: number) => {
     'worklet';
@@ -65,8 +94,28 @@ export const ChartGestureHandler: React.FC<ChartGestureHandlerProps> = ({
     const normPrice = (point.price - minP) / range;
     touchY.value = height - 20 - normPrice * (height - 40);
 
-    runOnJS(updateTooltipJS)(point.price, point.timestamp);
+    runOnJS(updateTooltipJS)(point);
   };
+
+  const hideTooltipJS = useCallback(() => {
+    isTouchActive.value = false;
+    if (onPointScrubbed) {
+      onPointScrubbed(null);
+    }
+  }, [isTouchActive, onPointScrubbed]);
+
+  const tapGesture = Gesture.Tap()
+    .onBegin((e) => {
+      'worklet';
+      isTouchActive.value = true;
+      updateScrubPoint(e.x);
+      runOnJS(triggerHapticJS)();
+    })
+    .onFinalize(() => {
+      'worklet';
+      // Keep tooltip visible for 2 seconds on tap, then hide if no active drag
+      runOnJS(setTimeout)(hideTooltipJS, 2000);
+    });
 
   const panGesture = Gesture.Pan()
     .onBegin((e) => {
@@ -82,19 +131,12 @@ export const ChartGestureHandler: React.FC<ChartGestureHandlerProps> = ({
     .onFinalize(() => {
       'worklet';
       isTouchActive.value = false;
+      if (onPointScrubbed) {
+        runOnJS(onPointScrubbed)(null);
+      }
     });
 
-  const pinchGesture = Gesture.Pinch()
-    .onBegin(() => {
-      'worklet';
-      runOnJS(triggerHapticJS)();
-    })
-    .onChange((_e) => {
-      'worklet';
-      // Smooth pinch zoom scaling handled on UI thread
-    });
-
-  const composedGesture = Gesture.Simultaneous(panGesture, pinchGesture);
+  const composedGesture = Gesture.Race(tapGesture, panGesture);
 
   return (
     <View style={{ width, height }}>

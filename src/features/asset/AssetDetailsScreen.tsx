@@ -1,19 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   ScrollView,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, spacing, typography } from '../../theme/tokens';
 import { AnimatedPressable } from '../../motion/primitives/AnimatedPressable';
-import { ChartGestureHandler } from '../../chart/ChartGestureHandler';
 import { useMarketStore } from '../../store/useMarketStore';
 import { usePortfolioStore } from '../../store/usePortfolioStore';
-import { TradeBottomSheet } from '../trading/TradeBottomSheet';
-import { ArrowLeft, TrendingUp } from 'lucide-react-native';
+import { Loader } from '../../components/Loader';
+
+const ChartGestureHandler = lazy(() => import('../../chart/ChartGestureHandler').then((m) => ({ default: m.ChartGestureHandler })));
+const TradeBottomSheet = lazy(() => import('../trading/TradeBottomSheet').then((m) => ({ default: m.TradeBottomSheet })));
+import { ArrowLeft, TrendingUp, TrendingDown, Clock } from 'lucide-react-native';
+import { fetchCoinGeckoMarketData } from '../../services/market/CoinGeckoService';
+import { PricePoint } from '../../services/market/MarketSimulator';
+import { haptics } from '../../services/haptics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -34,10 +40,96 @@ export const AssetDetailsScreen: React.FC<AssetDetailsScreenProps> = ({
   const holdings = usePortfolioStore((s) => s.holdings);
 
   const asset = assets.find((a) => a.id === assetId) || assets[0];
-  const userQty = holdings[asset.id] || 0;
-  const isPositive = asset.change24h >= 0;
+
+  const [timeframeData, setTimeframeData] = useState<PricePoint[]>(asset?.chartData || []);
+  const [isLoadingTimeframe, setIsLoadingTimeframe] = useState<boolean>(false);
+  const [scrubbedPoint, setScrubbedPoint] = useState<PricePoint | null>(null);
 
   const timeframes: ('1H' | '1D' | '1W' | '1M' | '1Y')[] = ['1H', '1D', '1W', '1M', '1Y'];
+
+  // Dynamically load historical data for selected timeframe
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoadingTimeframe(true);
+    setScrubbedPoint(null);
+
+    const coinGeckoIdMap: Record<string, string> = {
+      btc: 'bitcoin',
+      eth: 'ethereum',
+      sol: 'solana',
+      xrp: 'ripple',
+      ada: 'cardano',
+      doge: 'dogecoin',
+    };
+
+    const geckoId = coinGeckoIdMap[asset.id] || 'bitcoin';
+    const daysMap: Record<string, number> = {
+      '1H': 1,
+      '1D': 1,
+      '1W': 7,
+      '1M': 30,
+      '1Y': 365,
+    };
+
+    fetchCoinGeckoMarketData(geckoId, daysMap[selectedTimeframe] || 1)
+      .then((data) => {
+        if (!isMounted) return;
+        let finalData = data;
+        if (selectedTimeframe === '1H' && data.length > 12) {
+          finalData = data.slice(-12);
+        }
+        if (finalData.length > 0) {
+          setTimeframeData(finalData);
+        }
+        setIsLoadingTimeframe(false);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setIsLoadingTimeframe(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [asset?.id, selectedTimeframe]);
+
+  const handlePointScrubbed = useCallback((point: PricePoint | null) => {
+    setScrubbedPoint(point);
+  }, []);
+
+  // Compute period price metrics
+  const activeData = timeframeData.length > 0 ? timeframeData : asset.chartData;
+  const firstPrice = activeData[0]?.price || asset.currentPrice;
+  const lastPrice = activeData[activeData.length - 1]?.price || asset.currentPrice;
+
+  const displayPrice = scrubbedPoint ? scrubbedPoint.price : asset.currentPrice;
+  const periodChangeAmount = lastPrice - firstPrice;
+  const periodChangePercent = firstPrice > 0 ? (periodChangeAmount / firstPrice) * 100 : 0;
+  const isPeriodPositive = periodChangePercent >= 0;
+
+  // Format date and time string for scrubbed point
+  const formattedScrubTime = scrubbedPoint
+    ? `${new Date(scrubbedPoint.timestamp).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })} • ${new Date(scrubbedPoint.timestamp).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      })}`
+    : null;
+
+  if (!asset) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Loader text="Loading asset..." />
+      </View>
+    );
+  }
+
+  const userQty = holdings[asset.id] || 0;
 
   return (
     <View style={styles.container}>
@@ -61,40 +153,64 @@ export const AssetDetailsScreen: React.FC<AssetDetailsScreenProps> = ({
           </View>
         </View>
 
-        {/* Live Hero Price */}
+        {/* Live Hero Price & Dynamic Period PnL / Scrubbed Date & Time */}
         <View style={styles.priceContainer}>
           <Text style={styles.heroPrice}>
-            £{asset.currentPrice > 10 ? asset.currentPrice.toLocaleString('en-GB', { minimumFractionDigits: 2 }) : asset.currentPrice.toFixed(4)}
+            ${displayPrice >= 1000
+              ? displayPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+              : displayPrice >= 1
+              ? displayPrice.toFixed(2)
+              : displayPrice.toFixed(4)}
           </Text>
 
-          <View
-            style={[
-              styles.pnlPill,
-              { backgroundColor: isPositive ? colors.positiveMuted : colors.negativeMuted },
-            ]}
-          >
-            <TrendingUp size={14} color={isPositive ? colors.positive : colors.negative} />
-            <Text
+          {formattedScrubTime ? (
+            <View style={styles.scrubTimePill}>
+              <Clock size={13} color={colors.accent} />
+              <Text style={styles.scrubTimeText}>{formattedScrubTime}</Text>
+            </View>
+          ) : (
+            <View
               style={[
-                styles.pnlText,
-                { color: isPositive ? colors.positive : colors.negative },
+                styles.pnlPill,
+                { backgroundColor: isPeriodPositive ? colors.positiveMuted : colors.negativeMuted },
               ]}
             >
-              {isPositive ? '+' : ''}
-              {asset.change24h.toFixed(2)}% (£{asset.change24hAmount > 0 ? '+' : ''}
-              {asset.change24hAmount.toFixed(2)})
-            </Text>
-          </View>
+              {isPeriodPositive ? (
+                <TrendingUp size={14} color={colors.positive} />
+              ) : (
+                <TrendingDown size={14} color={colors.negative} />
+              )}
+              <Text
+                style={[
+                  styles.pnlText,
+                  { color: isPeriodPositive ? colors.positive : colors.negative },
+                ]}
+              >
+                {isPeriodPositive ? '+' : ''}
+                {periodChangePercent.toFixed(2)}% (${periodChangeAmount > 0 ? '+' : ''}
+                {periodChangeAmount.toFixed(2)}) for {selectedTimeframe}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Large Skia Interactive Price Chart */}
         <View style={styles.chartWrapper}>
-          <ChartGestureHandler
-            data={asset.chartData}
-            width={SCREEN_WIDTH - spacing.md * 2}
-            height={240}
-            isPositive={isPositive}
-          />
+          {isLoadingTimeframe ? (
+            <View style={styles.chartLoading}>
+              <Loader />
+            </View>
+          ) : (
+            <Suspense fallback={<View style={styles.chartLoading}><Loader text="Loading chart engine..." /></View>}>
+              <ChartGestureHandler
+                data={activeData}
+                width={SCREEN_WIDTH - spacing.md * 2}
+                height={240}
+                isPositive={isPeriodPositive}
+                onPointScrubbed={handlePointScrubbed}
+              />
+            </Suspense>
+          )}
         </View>
 
         {/* Timeframe Pills Selector */}
@@ -106,7 +222,10 @@ export const AssetDetailsScreen: React.FC<AssetDetailsScreenProps> = ({
                 styles.tfPill,
                 selectedTimeframe === tf && styles.tfPillActive,
               ]}
-              onPress={() => setSelectedTimeframe(tf)}
+              onPress={() => {
+                haptics.selection();
+                setSelectedTimeframe(tf);
+              }}
             >
               <Text
                 style={[
@@ -126,7 +245,7 @@ export const AssetDetailsScreen: React.FC<AssetDetailsScreenProps> = ({
           <View style={styles.holdingsRow}>
             <View>
               <Text style={styles.holdingsValue}>
-                £{(userQty * asset.currentPrice).toFixed(2)}
+                ${(userQty * asset.currentPrice).toFixed(2)}
               </Text>
               <Text style={styles.holdingsSub}>
                 {userQty.toFixed(6)} {asset.symbol}
@@ -134,7 +253,7 @@ export const AssetDetailsScreen: React.FC<AssetDetailsScreenProps> = ({
             </View>
             <View style={styles.marketCapCol}>
               <Text style={styles.capLabel}>Market Price</Text>
-              <Text style={styles.capValue}>£{asset.currentPrice.toFixed(2)}</Text>
+              <Text style={styles.capValue}>${asset.currentPrice.toFixed(2)}</Text>
             </View>
           </View>
         </View>
@@ -143,6 +262,8 @@ export const AssetDetailsScreen: React.FC<AssetDetailsScreenProps> = ({
       {/* Sticky Bottom Action Buttons */}
       <View style={[styles.actionFooter, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
         <AnimatedPressable
+          testID="sell-button"
+          accessibilityLabel="sell-button"
           style={[styles.actionBtn, styles.sellBtn]}
           onPress={() => setTradeSide('SELL')}
         >
@@ -150,6 +271,8 @@ export const AssetDetailsScreen: React.FC<AssetDetailsScreenProps> = ({
         </AnimatedPressable>
 
         <AnimatedPressable
+          testID="buy-button"
+          accessibilityLabel="buy-button"
           style={[styles.actionBtn, styles.buyBtn]}
           onPress={() => setTradeSide('BUY')}
         >
@@ -158,12 +281,16 @@ export const AssetDetailsScreen: React.FC<AssetDetailsScreenProps> = ({
       </View>
 
       {/* Trading Motion Bottom Sheet */}
-      <TradeBottomSheet
-        isVisible={tradeSide !== null}
-        side={tradeSide || 'BUY'}
-        asset={asset}
-        onClose={() => setTradeSide(null)}
-      />
+      {tradeSide !== null && (
+        <Suspense fallback={null}>
+          <TradeBottomSheet
+            isVisible={true}
+            side={tradeSide}
+            asset={asset}
+            onClose={() => setTradeSide(null)}
+          />
+        </Suspense>
+      )}
     </View>
   );
 };
@@ -209,7 +336,6 @@ const styles = StyleSheet.create({
     ...typography.monoLarge,
     color: colors.primaryText,
   },
-  // pnlRow was defined but never used — removed
   pnlPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -224,6 +350,24 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontWeight: '700',
   },
+  scrubTimePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    gap: 5,
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+    backgroundColor: colors.accentMuted,
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  scrubTimeText: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.accent,
+  },
   chartWrapper: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
@@ -232,6 +376,13 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     alignItems: 'center',
     marginBottom: spacing.md,
+    minHeight: 250,
+    justifyContent: 'center',
+  },
+  chartLoading: {
+    height: 240,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   timeframeRow: {
     flexDirection: 'row',
