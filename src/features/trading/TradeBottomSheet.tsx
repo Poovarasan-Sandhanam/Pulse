@@ -84,7 +84,7 @@ export const TradeBottomSheet: React.FC<TradeBottomSheetProps> = ({
             <Text style={styles.successTitle}>
               {asset.symbol} {side === 'BUY' ? 'Purchased' : 'Sold'}
             </Text>
-            <Text style={styles.successAmount}>£{amount.toFixed(2)}</Text>
+            <Text style={styles.successAmount}>${amount.toFixed(2)}</Text>
             <Text style={styles.successQuantity}>
               {receiveQuantity} {asset.symbol}
             </Text>
@@ -100,16 +100,16 @@ export const TradeBottomSheet: React.FC<TradeBottomSheetProps> = ({
               <Text style={styles.balanceLabel}>Available</Text>
               <Text style={styles.balanceValue}>
                 {side === 'BUY'
-                  ? `£${cashBalance.toFixed(2)}`
-                  : `${userQty.toFixed(4)} ${asset.symbol} (£${(userQty * asset.currentPrice).toFixed(2)})`}
+                  ? `$${cashBalance.toFixed(2)}`
+                  : `${userQty.toFixed(4)} ${asset.symbol} ($${(userQty * asset.currentPrice).toFixed(2)})`}
               </Text>
             </View>
 
             {/* Amount Input */}
             <View style={styles.inputCard}>
-              <Text style={styles.inputLabel}>Amount (GBP)</Text>
+              <Text style={styles.inputLabel}>Amount (USD)</Text>
               <View style={styles.inputRow}>
-                <Text style={styles.currencyPrefix}>£</Text>
+                <Text style={styles.currencyPrefix}>$</Text>
                 <TextInput
                   style={styles.input}
                   keyboardType="numeric"
@@ -132,14 +132,14 @@ export const TradeBottomSheet: React.FC<TradeBottomSheetProps> = ({
             {/* Calculation Breakdown */}
             <View style={styles.breakdownCard}>
               <View style={styles.breakdownRow}>
-                {/* BUY: show crypto received. SELL: show GBP received after fee */}
+                {/* BUY: show crypto received. SELL: show USD received after fee */}
                 <Text style={styles.bdLabel}>
-                  {side === 'BUY' ? 'You receive' : 'You receive (GBP)'}
+                  {side === 'BUY' ? 'You receive' : 'You receive (USD)'}
                 </Text>
                 <Text style={styles.bdValue}>
                   {side === 'BUY'
                     ? `${receiveQuantity} ${asset.symbol}`
-                    : `£${Math.max(0, amount - estimatedFee).toFixed(2)}`}
+                    : `$${Math.max(0, amount - estimatedFee).toFixed(2)}`}
                 </Text>
               </View>
 
@@ -163,12 +163,12 @@ export const TradeBottomSheet: React.FC<TradeBottomSheetProps> = ({
 
               <View style={styles.breakdownRow}>
                 <Text style={styles.bdLabel}>Execution Price</Text>
-                <Text style={styles.bdValue}>£{asset.currentPrice.toFixed(2)}</Text>
+                <Text style={styles.bdValue}>${asset.currentPrice.toFixed(2)}</Text>
               </View>
 
               <View style={styles.breakdownRow}>
                 <Text style={styles.bdLabel}>Estimated fee (0.5%)</Text>
-                <Text style={styles.bdValue}>£{estimatedFee.toFixed(2)}</Text>
+                <Text style={styles.bdValue}>${estimatedFee.toFixed(2)}</Text>
               </View>
             </View>
 

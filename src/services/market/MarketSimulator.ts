@@ -15,7 +15,14 @@ export interface CryptoAsset {
   sparkline: number[];
   chartData: PricePoint[];
   isWatchlisted: boolean;
+  /** Last real price from the market feed. Ticks drift around this, not away from it. */
+  anchorPrice: number;
 }
+
+/** Hard cap on how far a tick may wander from the anchor, as a fraction of it. */
+const MAX_DRIFT = 0.002;
+/** Pull back toward the anchor per tick; keeps drift bounded between fetches. */
+const REVERSION = 0.15;
 
 const INITIAL_ASSETS: Omit<CryptoAsset, 'sparkline' | 'chartData' | 'change24h' | 'change24hAmount'>[] = [
   { id: 'btc', name: 'Bitcoin', symbol: 'BTC', color: '#F7931A', currentPrice: 63420.25, previous24hPrice: 60832.10, isWatchlisted: true },
@@ -80,6 +87,7 @@ export function initializeMarketData(): CryptoAsset[] {
       change24hAmount: parseFloat(change24hAmount.toFixed(4)),
       sparkline,
       chartData,
+      anchorPrice: asset.currentPrice,
     };
   });
 }
@@ -87,13 +95,23 @@ export function initializeMarketData(): CryptoAsset[] {
 /**
  * Controlled Random Walk (Geometric Brownian Motion tick update)
  */
-export function generateMarketTick(assets: CryptoAsset[]): CryptoAsset[] {
+export function generateMarketTick(assets: CryptoAsset[], rand: () => number = Math.random): CryptoAsset[] {
   return assets.map((asset) => {
-    // Volatility proportional to asset price
-    const volatility = asset.currentPrice > 1000 ? 0.0012 : 0.0025;
-    const deltaPercent = (Math.random() - 0.495) * volatility;
-    const priceDelta = asset.currentPrice * deltaPercent;
-    const newPrice = Math.max(0.001, parseFloat((asset.currentPrice + priceDelta).toFixed(asset.currentPrice > 10 ? 2 : 4)));
+    const anchor = asset.anchorPrice || asset.currentPrice;
+
+    // Ornstein-Uhlenbeck style step: random jitter plus a pull back toward the
+    // anchor, so intra-fetch motion stays visible without wandering off the
+    // real price. Clamping bounds the worst case if fetches stop arriving.
+    const volatility = anchor > 1000 ? 0.0012 : 0.0025;
+    const jitter = (rand() - 0.5) * volatility * anchor;
+    const reversion = (anchor - asset.currentPrice) * REVERSION;
+    const drifted = asset.currentPrice + jitter + reversion;
+
+    const clamped = Math.min(
+      anchor * (1 + MAX_DRIFT),
+      Math.max(anchor * (1 - MAX_DRIFT), drifted)
+    );
+    const newPrice = Math.max(0.001, parseFloat(clamped.toFixed(anchor > 10 ? 2 : 4)));
 
     const newChartData = [
       ...asset.chartData.slice(1),

@@ -47,7 +47,7 @@ export const ActivityScreen: React.FC = () => {
 
           <View style={styles.valueCol}>
             <Text style={styles.amount}>
-              {isBuy ? '-' : '+'}£{item.amount.toFixed(2)}
+              {isBuy ? '-' : '+'}${item.amount.toFixed(2)}
             </Text>
             <View style={styles.statusRow}>
               {isCompleted ? (

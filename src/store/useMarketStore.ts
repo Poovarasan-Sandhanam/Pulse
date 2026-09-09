@@ -19,14 +19,12 @@ interface MarketState {
   fetchRealMarketPrices: () => Promise<void>;
 }
 
-export const useMarketStore = create<MarketState>((set, get) => {
-  // Trigger initial background fetch of real market prices
-  setTimeout(() => {
-    get().fetchRealMarketPrices();
-  }, 100);
-
+export const useMarketStore = create<MarketState>((set) => {
   return {
-    assets: [],
+    // Seeded synthetically so the first frame has data; replaced by the live
+    // feed as soon as it resolves. The fetch is scheduled by the root layout,
+    // not here, so importing this store never performs network I/O.
+    assets: initializeMarketData(),
     searchQuery: '',
     watchlistOnly: false,
     selectedTimeframe: '1D',
@@ -69,11 +67,9 @@ export const useMarketStore = create<MarketState>((set, get) => {
           return { assets: mergedAssets, isLoadingRealData: false };
         });
       } else {
-        // Fallback to synthetic if live fetch fails and we have no assets
-        set((state) => ({
-          assets: state.assets.length > 0 ? state.assets : initializeMarketData(),
-          isLoadingRealData: false,
-        }));
+        // Live fetch failed (offline or rate-limited). Keep whatever is on
+        // screen and let the tick keep drifting around the last known anchor.
+        set({ isLoadingRealData: false });
       }
     },
   };

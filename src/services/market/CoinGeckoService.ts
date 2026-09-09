@@ -1,13 +1,25 @@
 import { PricePoint, CryptoAsset } from './MarketSimulator';
 
-const ASSET_MAPPING: Record<string, { symbol: string; color: string }> = {
-  bitcoin: { symbol: 'BTC', color: '#F7931A' },
-  ethereum: { symbol: 'ETH', color: '#627EEA' },
-  solana: { symbol: 'SOL', color: '#14F195' },
-  ripple: { symbol: 'XRP', color: '#23292F' },
-  cardano: { symbol: 'ADA', color: '#0033AD' },
-  dogecoin: { symbol: 'DOGE', color: '#C2A633' },
+// CoinGecko id -> the app's own asset id. These must stay in step with
+// INITIAL_ASSETS in MarketSimulator: routes (markets/[id]) and portfolio
+// holdings are keyed by appId, so live and simulated data have to agree.
+const ASSET_MAPPING: Record<string, { appId: string; symbol: string; color: string }> = {
+  bitcoin: { appId: 'btc', symbol: 'BTC', color: '#F7931A' },
+  ethereum: { appId: 'eth', symbol: 'ETH', color: '#627EEA' },
+  solana: { appId: 'sol', symbol: 'SOL', color: '#14F195' },
+  ripple: { appId: 'xrp', symbol: 'XRP', color: '#23292F' },
+  cardano: { appId: 'ada', symbol: 'ADA', color: '#0033AD' },
+  dogecoin: { appId: 'doge', symbol: 'DOGE', color: '#C2A633' },
 };
+
+const GECKO_ID_BY_APP_ID: Record<string, string> = Object.fromEntries(
+  Object.entries(ASSET_MAPPING).map(([geckoId, { appId }]) => [appId, geckoId])
+);
+
+/** Resolve an app asset id (e.g. 'xrp') to its CoinGecko id (e.g. 'ripple'). */
+export function getGeckoId(appId: string): string {
+  return GECKO_ID_BY_APP_ID[appId] || 'bitcoin';
+}
 
 /**
  * Fetch real-time market prices, 24h changes, and sparklines from CoinGecko API
@@ -31,6 +43,7 @@ export async function fetchLiveMarketAssets(): Promise<CryptoAsset[]> {
     const now = Date.now();
     const assets: CryptoAsset[] = json.map((coin: any) => {
       const meta = ASSET_MAPPING[coin.id] || {
+        appId: coin.symbol || coin.id,
         symbol: (coin.symbol || '').toUpperCase(),
         color: '#3B82F6',
       };
@@ -51,18 +64,21 @@ export async function fetchLiveMarketAssets(): Promise<CryptoAsset[]> {
       const previous24hPrice = currentPrice - change24hAmount;
       const change24h = coin.price_change_percentage_24h || 0;
 
+      const price = parseFloat(currentPrice.toFixed(currentPrice > 10 ? 2 : 4));
+
       return {
-        id: coin.symbol === 'btc' ? 'btc' : coin.symbol === 'eth' ? 'eth' : coin.symbol === 'sol' ? 'sol' : coin.id,
+        id: meta.appId,
         name: coin.name,
         symbol: meta.symbol,
         color: meta.color,
-        currentPrice: parseFloat(currentPrice.toFixed(currentPrice > 10 ? 2 : 4)),
+        currentPrice: price,
         previous24hPrice: parseFloat(previous24hPrice.toFixed(previous24hPrice > 10 ? 2 : 4)),
         change24h: parseFloat(change24h.toFixed(2)),
         change24hAmount: parseFloat(change24hAmount.toFixed(4)),
         sparkline,
         chartData,
-        isWatchlisted: coin.symbol === 'btc' || coin.symbol === 'eth' || coin.symbol === 'sol',
+        isWatchlisted: ['btc', 'eth', 'sol'].includes(meta.appId),
+        anchorPrice: price,
       };
     });
 

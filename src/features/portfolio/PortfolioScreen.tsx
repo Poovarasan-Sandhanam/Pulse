@@ -112,7 +112,7 @@ export const PortfolioScreen: React.FC = () => {
             <Text style={styles.balanceLabel}>Total Portfolio Value</Text>
             <AnimatedNumber
               value={totalPortfolioValue}
-              prefix="£"
+              prefix="$"
               decimals={2}
               style={styles.balanceValue}
             />
@@ -134,7 +134,7 @@ export const PortfolioScreen: React.FC = () => {
                 { color: isPositive ? colors.positive : colors.negative },
               ]}
             >
-              {isPositive ? '+' : ''}£{pnlAmount.toFixed(2)} ({isPositive ? '+' : ''}
+              {isPositive ? '+' : ''}${pnlAmount.toFixed(2)} ({isPositive ? '+' : ''}
               {pnlPercent.toFixed(2)}%)
             </Text>
           </View>
@@ -204,7 +204,7 @@ export const PortfolioScreen: React.FC = () => {
                 </View>
 
                 <View style={styles.assetValueCol}>
-                  <Text style={styles.assetValue}>£{value.toFixed(2)}</Text>
+                  <Text style={styles.assetValue}>${value.toFixed(2)}</Text>
                   <Text
                     style={[
                       styles.assetChange,
@@ -260,7 +260,7 @@ export const PortfolioScreen: React.FC = () => {
             </View>
 
             <Text style={styles.activityAmount}>
-              {order.side === 'BUY' ? '-' : '+'}£{order.amount.toFixed(2)}
+              {order.side === 'BUY' ? '-' : '+'}${order.amount.toFixed(2)}
             </Text>
           </View>
         </AnimatedCard>
