@@ -6,31 +6,37 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors, radius, spacing, typography } from '../theme/tokens';
 
+const TOOLTIP_WIDTH = 160;
+
 interface ChartTooltipProps {
+  chartWidth: number;
   touchX: SharedValue<number>;
   touchY: SharedValue<number>;
-  isTouchActive: SharedValue<boolean>;
+  activeOpacity: SharedValue<number>;
   activePriceText: string;
   activeTimeText: string;
 }
 
 export const ChartTooltip: React.FC<ChartTooltipProps> = ({
+  chartWidth,
   touchX,
   touchY,
-  isTouchActive,
+  activeOpacity,
   activePriceText,
   activeTimeText,
 }) => {
   const containerStyle = useAnimatedStyle(() => {
-    const tooltipWidth = 160;
-    const xPos = Math.max(10, Math.min(touchX.value - tooltipWidth / 2, 190));
+    const maxX = Math.max(10, chartWidth - TOOLTIP_WIDTH - 10);
+    const rawX = touchX.value - TOOLTIP_WIDTH / 2;
+    const xPos = Number.isFinite(rawX)
+      ? Math.max(10, Math.min(rawX, maxX))
+      : 10;
+    const rawY = touchY.value - 62;
+    const yPos = Number.isFinite(rawY) ? Math.max(10, rawY) : 10;
 
     return {
-      opacity: isTouchActive.value ? 1 : 0,
-      transform: [
-        { translateX: xPos },
-        { translateY: Math.max(10, touchY.value - 62) },
-      ],
+      opacity: activeOpacity.value,
+      transform: [{ translateX: xPos }, { translateY: yPos }],
     };
   });
 
@@ -57,7 +63,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 6,
-    minWidth: 150,
+    width: TOOLTIP_WIDTH,
   },
   price: {
     ...typography.mono,

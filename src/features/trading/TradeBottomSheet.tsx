@@ -6,6 +6,7 @@ import {
   TextInput,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, spacing, typography } from '../../theme/tokens';
 import { MotionBottomSheet } from '../../components/MotionBottomSheet';
 import { SwipeToConfirm } from '../../components/SwipeToConfirm';
@@ -42,6 +43,7 @@ export const TradeBottomSheet: React.FC<TradeBottomSheetProps> = ({
     }
   }, [isVisible]);
 
+  const insets = useSafeAreaInsets();
   const { cashBalance, holdings } = usePortfolioStore();
 
   const amount = parseFloat(amountStr) || 0;
@@ -74,7 +76,10 @@ export const TradeBottomSheet: React.FC<TradeBottomSheetProps> = ({
     <MotionBottomSheet isVisible={isVisible} onClose={onClose} snapPoints={[0.85]}>
       <ScrollView
         style={styles.scrollContent}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: spacing.lg + insets.bottom },
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -194,7 +199,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    paddingBottom: spacing.xxl,
+    flexGrow: 1,
   },
   sheetTitle: {
     ...typography.h2,
@@ -270,10 +275,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   swipeContainer: {
+    flex:1,
     marginTop: 'auto',
-    marginBottom: spacing.md,
+    paddingTop: spacing.lg,
   },
   successContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.xxl,

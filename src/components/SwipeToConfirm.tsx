@@ -16,6 +16,18 @@ import { haptics } from '../services/haptics';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { Check, ArrowRight } from 'lucide-react-native';
 
+// Track geometry is derived, not hand-tuned: the thumb must fit exactly inside
+// the track's border box with an even inset on all four sides, otherwise
+// `overflow: 'hidden'` clips it and the travel math drifts past the edge.
+const TRACK_HEIGHT = 60;
+const TRACK_BORDER = 1;
+const TRACK_INSET = 4;
+const THUMB_SIZE = TRACK_HEIGHT - TRACK_BORDER * 2 - TRACK_INSET * 2;
+
+/** Horizontal space the thumb can travel inside a track of the given width. */
+const travelFor = (trackWidth: number) =>
+  Math.max(0, trackWidth - TRACK_BORDER * 2 - TRACK_INSET * 2 - THUMB_SIZE);
+
 interface SwipeToConfirmProps {
   label?: string;
   onConfirm: () => void | Promise<void>;
@@ -27,17 +39,15 @@ export const SwipeToConfirm: React.FC<SwipeToConfirmProps> = ({
   onConfirm,
   disabled = false,
 }) => {
-  const [containerWidth, setContainerWidth] = useState(300);
+  const [containerWidth, setContainerWidth] = useState(0);
   const [status, setStatus] = useState<'idle' | 'processing' | 'confirmed'>('idle');
   const reduceMotion = useSettingsStore((s) => s.reduceMotion);
 
-  const thumbSize = 52;
-  const padding = 4;
-  const maxTranslate = useSharedValue(containerWidth - thumbSize - padding * 2);
+  const maxTranslate = useSharedValue(0);
 
   // Keep maxTranslate shared value in sync with containerWidth
   useEffect(() => {
-    maxTranslate.value = containerWidth - thumbSize - padding * 2;
+    maxTranslate.value = travelFor(containerWidth);
   }, [containerWidth, maxTranslate]);
 
   const translateX = useSharedValue(0);
@@ -135,8 +145,10 @@ export const SwipeToConfirm: React.FC<SwipeToConfirmProps> = ({
     transform: [{ translateX: translateX.value }],
   }));
 
+  // The fill's right edge sits exactly under the thumb's right edge: both are
+  // measured from the same inset origin, so they can never drift apart.
   const progressFillStyle = useAnimatedStyle(() => ({
-    width: translateX.value + thumbSize / 2 + padding,
+    width: translateX.value + THUMB_SIZE,
   }));
 
   const labelAnimatedStyle = useAnimatedStyle(() => {
@@ -184,14 +196,16 @@ export const SwipeToConfirm: React.FC<SwipeToConfirmProps> = ({
 
 const styles = StyleSheet.create({
   track: {
-    height: 60,
+    height: TRACK_HEIGHT,
     width: '100%',
     backgroundColor: colors.surface,
     borderRadius: radius.full,
-    borderWidth: 1,
+    borderWidth: TRACK_BORDER,
     borderColor: colors.borderHighlight,
+    // No padding: absolutely-positioned children are then unambiguously
+    // measured from the border box, and the thumb is inset via marginLeft.
     justifyContent: 'center',
-    padding: 4,
+    alignItems: 'flex-start',
     overflow: 'hidden',
     position: 'relative',
   },
@@ -204,26 +218,34 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
+    left: TRACK_INSET,
+    top: TRACK_INSET,
+    bottom: TRACK_INSET,
     backgroundColor: colors.accentGlow,
-    borderRadius: radius.full,
+    borderRadius: THUMB_SIZE / 2,
   },
   labelContainer: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    // Centered in the track area the thumb leaves free, not in the whole
+    // track — otherwise the thumb pushes the label visually off-centre.
+    left: TRACK_INSET * 2 + THUMB_SIZE,
+    right: TRACK_INSET,
+    top: 0,
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },
   label: {
     ...typography.bodyBold,
     color: colors.primaryText,
-    letterSpacing: 0.5,
+    textAlign:"center"
   },
+
   thumb: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: THUMB_SIZE / 2,
+    marginLeft: TRACK_INSET,
     backgroundColor: colors.accent,
     justifyContent: 'center',
     alignItems: 'center',

@@ -11,7 +11,7 @@ interface ChartCrosshairProps {
   height: number;
   touchX: SharedValue<number>;
   touchY: SharedValue<number>;
-  isTouchActive: SharedValue<boolean>;
+  activeOpacity: SharedValue<number>;
 }
 
 export const ChartCrosshair: React.FC<ChartCrosshairProps> = ({
@@ -19,20 +19,20 @@ export const ChartCrosshair: React.FC<ChartCrosshairProps> = ({
   height,
   touchX,
   touchY,
-  isTouchActive,
+  activeOpacity,
 }) => {
   const verticalLineStyle = useAnimatedStyle(() => ({
-    opacity: isTouchActive.value ? 1 : 0,
+    opacity: activeOpacity.value,
     transform: [{ translateX: touchX.value }],
   }));
 
   const horizontalLineStyle = useAnimatedStyle(() => ({
-    opacity: isTouchActive.value ? 0.6 : 0,
+    opacity: activeOpacity.value * 0.6,
     transform: [{ translateY: touchY.value }],
   }));
 
   const pointDotStyle = useAnimatedStyle(() => ({
-    opacity: isTouchActive.value ? 1 : 0,
+    opacity: activeOpacity.value,
     transform: [
       { translateX: touchX.value - 6 },
       { translateY: touchY.value - 6 },

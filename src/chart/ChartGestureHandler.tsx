@@ -1,12 +1,21 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { useSharedValue, runOnJS } from 'react-native-reanimated';
+import {
+  useSharedValue,
+  runOnJS,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
 import { SkiaPriceChart } from './SkiaPriceChart';
 import { ChartCrosshair } from './ChartCrosshair';
 import { ChartTooltip } from './ChartTooltip';
 import { PricePoint } from '../services/market/MarketSimulator';
 import { haptics } from '../services/haptics';
+
+/** How long the tooltip lingers after a tap before fading out. */
+const TAP_LINGER_MS = 2000;
+const FADE_MS = 180;
 
 interface ChartGestureHandlerProps {
   data: PricePoint[];
@@ -25,7 +34,9 @@ export const ChartGestureHandler: React.FC<ChartGestureHandlerProps> = ({
 }) => {
   const touchX = useSharedValue(0);
   const touchY = useSharedValue(0);
-  const isTouchActive = useSharedValue(false);
+  // 0 = hidden, 1 = fully visible. A number (not a boolean) so the auto-hide
+  // after a tap can run as a UI-thread animation instead of a JS timer.
+  const activeOpacity = useSharedValue(0);
 
   const [activePriceText, setActivePriceText] = useState('');
   const [activeTimeText, setActiveTimeText] = useState('');
@@ -79,9 +90,16 @@ export const ChartGestureHandler: React.FC<ChartGestureHandlerProps> = ({
     [onPointScrubbed]
   );
 
+  const clearScrubJS = useCallback(() => {
+    if (onPointScrubbed) {
+      onPointScrubbed(null);
+    }
+  }, [onPointScrubbed]);
+
   const updateScrubPoint = (x: number) => {
     'worklet';
     if (!data || data.length === 0) return;
+    if (!Number.isFinite(x) || width <= 20 || height <= 40) return;
 
     const clampedX = Math.max(10, Math.min(x, width - 10));
     touchX.value = clampedX;
@@ -89,38 +107,42 @@ export const ChartGestureHandler: React.FC<ChartGestureHandlerProps> = ({
     const index = Math.round(((clampedX - 10) / (width - 20)) * (data.length - 1));
     const pointIndex = Math.max(0, Math.min(index, data.length - 1));
     const point = data[pointIndex];
-    if (!point) return;
+    if (!point || !Number.isFinite(point.price)) return;
 
     const normPrice = (point.price - minP) / range;
-    touchY.value = height - 20 - normPrice * (height - 40);
+    const y = height - 20 - normPrice * (height - 40);
+    touchY.value = Number.isFinite(y) ? y : height / 2;
 
     runOnJS(updateTooltipJS)(point);
   };
 
-  const hideTooltipJS = useCallback(() => {
-    isTouchActive.value = false;
-    if (onPointScrubbed) {
-      onPointScrubbed(null);
-    }
-  }, [isTouchActive, onPointScrubbed]);
-
   const tapGesture = Gesture.Tap()
     .onBegin((e) => {
       'worklet';
-      isTouchActive.value = true;
+      activeOpacity.value = 1;
       updateScrubPoint(e.x);
       runOnJS(triggerHapticJS)();
     })
     .onFinalize(() => {
       'worklet';
-      // Keep tooltip visible for 2 seconds on tap, then hide if no active drag
-      runOnJS(setTimeout)(hideTooltipJS, 2000);
+      // Keep the tooltip visible briefly after a tap, then fade it out.
+      // This runs on the UI thread: no JS timer to leak or to fire after
+      // unmount, and Reanimated cancels it automatically if the view goes away.
+      activeOpacity.value = withDelay(
+        TAP_LINGER_MS,
+        withTiming(0, { duration: FADE_MS }, (finished) => {
+          'worklet';
+          if (finished) {
+            runOnJS(clearScrubJS)();
+          }
+        })
+      );
     });
 
   const panGesture = Gesture.Pan()
     .onBegin((e) => {
       'worklet';
-      isTouchActive.value = true;
+      activeOpacity.value = 1;
       updateScrubPoint(e.x);
       runOnJS(triggerHapticJS)();
     })
@@ -130,10 +152,8 @@ export const ChartGestureHandler: React.FC<ChartGestureHandlerProps> = ({
     })
     .onFinalize(() => {
       'worklet';
-      isTouchActive.value = false;
-      if (onPointScrubbed) {
-        runOnJS(onPointScrubbed)(null);
-      }
+      activeOpacity.value = withTiming(0, { duration: FADE_MS });
+      runOnJS(clearScrubJS)();
     });
 
   const composedGesture = Gesture.Race(tapGesture, panGesture);
@@ -153,12 +173,13 @@ export const ChartGestureHandler: React.FC<ChartGestureHandlerProps> = ({
             height={height}
             touchX={touchX}
             touchY={touchY}
-            isTouchActive={isTouchActive}
+            activeOpacity={activeOpacity}
           />
           <ChartTooltip
+            chartWidth={width}
             touchX={touchX}
             touchY={touchY}
-            isTouchActive={isTouchActive}
+            activeOpacity={activeOpacity}
             activePriceText={activePriceText}
             activeTimeText={activeTimeText}
           />

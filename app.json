@@ -10,7 +10,7 @@
 
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.pulse.trading",
+      "bundleIdentifier": "com.psandhanam.pulse",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -21,7 +21,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B0E14"
       },
-      "package": "com.pulse.trading",
+      "package": "com.psandhanam.pulse",
       "permissions": [
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT"
